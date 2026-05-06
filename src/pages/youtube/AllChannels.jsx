@@ -6,8 +6,8 @@ import { useAuth } from '../../context/AuthContext';
 import { channels as mockChannels } from '../../data/mockData';
 import {
   Search, ChevronDown, Plus, X, Check,
-  ExternalLink, Settings, Trash2, TrendingUp,
-  Users, Eye, Clock, DollarSign, Tag, ChevronRight
+  ExternalLink, Settings, Trash2, TrendingUp, TrendingDown, Minus,
+  Users, Eye, Clock, DollarSign, Tag, ChevronRight, Calendar
 } from 'lucide-react';
 import './AllChannels.css';
 
@@ -33,6 +33,34 @@ const STATUS_STYLE = {
   Declining: { bg: 'rgba(239,68,68,0.12)',   color: '#f87171' },
 };
 
+const UPLOAD_STATUS_STYLE = {
+  Fresh:          { bg: 'rgba(16,185,129,0.12)',  color: '#34d399' },
+  Active:         { bg: 'rgba(99,102,241,0.12)',  color: '#818cf8' },
+  'Needs Upload': { bg: 'rgba(245,158,11,0.12)',  color: '#fbbf24' },
+  Inactive:       { bg: 'rgba(239,68,68,0.12)',   color: '#f87171' },
+};
+
+const TREND_STYLE = {
+  growing:   { color: '#34d399', icon: TrendingUp, label: 'Growing' },
+  declining: { color: '#f87171', icon: TrendingDown, label: 'Declining' },
+  stable:    { color: '#94a3b8', icon: Minus, label: 'Stable' },
+  'needs-review': { color: '#fbbf24', icon: AlertCircle, label: 'Needs Review' }
+};
+
+// ── Trend Component ──────────────────────────────────────────────────
+const TrendValue = ({ trend }) => {
+  if (!trend) return null;
+  const isUp = trend.dir === 'up';
+  const color = isUp ? '#34d399' : '#f87171';
+  const Icon = isUp ? TrendingUp : TrendingDown;
+  
+  return (
+    <span className="ac-metric-trend" style={{ color }}>
+      <Icon size={10} /> {trend.val}
+    </span>
+  );
+};
+
 // ── Default channel list from mock + real data ────────────────────────
 const buildChannelList = (allChannels) => {
   if (allChannels.length > 0) {
@@ -52,6 +80,8 @@ const buildChannelList = (allChannels) => {
       retention: ch.analytics?.avgRetention ? ch.analytics.avgRetention + '%' : '—',
       revenue: '—',
       lastUpload: '—',
+      uploadStatus: 'Active',
+      trend: 'stable',
       lastVideoPerf: ch.analytics?.ctr ? `${ch.analytics.ctr}% CTR · ${ch.analytics.avgRetention}% ret.` : '—',
       isReal: true,
     }));
@@ -63,11 +93,6 @@ const buildChannelList = (allChannels) => {
     niche: ch.niche || 'Uncategorized',
     priority: 'Normal',
     notes: '',
-    watchTime: '85K hrs',
-    retention: '42%',
-    revenue: ch.revenue || '—',
-    lastUpload: '2 days ago',
-    lastVideoPerf: `${ch.rtViews} · ${ch.ctr} CTR`,
     isReal: false,
   }));
 };
@@ -272,7 +297,7 @@ function AddChannelDrawer({ onClose, onAdd, existingCategories }) {
               </div>
               <div className="drawer-nav">
                 <button className="btn btn-secondary" onClick={() => setStep(4)}>Back</button>
-                <button className="btn btn-primary" onClick={() => { onAdd({ ...form, id: Date.now(), avatar: form.name.substring(0, 2).toUpperCase(), thumbnail: null, subs: '0', views: '0', watchTime: '—', ctr: '—', retention: '—', revenue: '—', lastUpload: 'Just added', lastVideoPerf: '—', isReal: false }); onClose(); }}>
+                <button className="btn btn-primary" onClick={() => { onAdd({ ...form, id: Date.now(), avatar: form.name.substring(0, 2).toUpperCase(), thumbnail: null, subs: '0', views: '0', watchTime: '—', ctr: '—', retention: '—', revenue: '—', lastUpload: 'Just added', uploadStatus: 'Fresh', trend: 'stable', lastVideoPerf: '—', isReal: false }); onClose(); }}>
                   <Check size={15} /> Add Channel
                 </button>
               </div>
@@ -293,7 +318,7 @@ export default function AllChannels() {
   const [channelList, setChannelList] = useState(() => buildChannelList(allChannels));
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [filterMonetized, setFilterMonetized] = useState('all');
+  const [filterTrend, setFilterTrend] = useState('all');
   const [sortKey, setSortKey] = useState('name');
   const [showDrawer, setShowDrawer] = useState(false);
 
@@ -308,7 +333,8 @@ export default function AllChannels() {
       const q = search.toLowerCase();
       const matchSearch = !q || c.name.toLowerCase().includes(q) || (c.niche || '').toLowerCase().includes(q);
       const matchStatus = filterStatus === 'all' || c.status === filterStatus;
-      return matchSearch && matchStatus;
+      const matchTrend = filterTrend === 'all' || c.trend === filterTrend;
+      return matchSearch && matchStatus && matchTrend;
     })
     .sort((a, b) => {
       if (sortKey === 'name') return a.name.localeCompare(b.name);
@@ -334,8 +360,8 @@ export default function AllChannels() {
             <span className="ac-header-stat-lbl">{locale === 'id' ? 'Total Channel' : 'Total Channels'}</span>
           </div>
           <div className="ac-header-stat">
-            <span className="ac-header-stat-val">{channelList.filter(c => c.status === 'Active').length}</span>
-            <span className="ac-header-stat-lbl">Active</span>
+            <span className="ac-header-stat-val">{channelList.filter(c => c.trend === 'growing').length}</span>
+            <span className="ac-header-stat-lbl">Growing</span>
           </div>
         </div>
       </header>
@@ -361,6 +387,15 @@ export default function AllChannels() {
                 { v: 'Active', l: 'Active' },
                 { v: 'Testing', l: 'Testing' },
                 { v: 'Inactive', l: 'Inactive' },
+              ]
+            },
+            {
+              val: filterTrend, set: setFilterTrend,
+              options: [
+                { v: 'all', l: 'All Trends' },
+                { v: 'growing', l: 'Growing' },
+                { v: 'stable', l: 'Stable' },
+                { v: 'declining', l: 'Declining' },
               ]
             },
             {
@@ -392,10 +427,11 @@ export default function AllChannels() {
         {/* Header Row */}
         <div className="ac-row ac-list-header">
           <span className="ac-col-name">Channel</span>
+          <span className="ac-col-upload">Last Upload</span>
+          <span className="ac-col-trend">Trend</span>
           <span className="ac-col-stat">Subscribers</span>
           <span className="ac-col-stat">Views (28d)</span>
           <span className="ac-col-stat">Watch Time</span>
-          <span className="ac-col-stat">CTR</span>
           <span className="ac-col-stat">Revenue</span>
           <span className="ac-col-actions">Actions</span>
         </div>
@@ -411,6 +447,9 @@ export default function AllChannels() {
           {filtered.map((ch, i) => {
             const color = getColor(ch.name);
             const statusStyle = STATUS_STYLE[ch.status] || STATUS_STYLE['Active'];
+            const uploadStyle = UPLOAD_STATUS_STYLE[ch.uploadStatus] || UPLOAD_STATUS_STYLE['Active'];
+            const trendCfg = TREND_STYLE[ch.trend] || TREND_STYLE['stable'];
+            const TrendIcon = trendCfg.icon;
 
             return (
               <motion.div
@@ -438,40 +477,70 @@ export default function AllChannels() {
                         {ch.status}
                       </span>
                     </div>
-                    {ch.lastVideoPerf && ch.lastVideoPerf !== '—' && (
-                      <span className="ac-last-perf">{ch.lastVideoPerf}</span>
-                    )}
                   </div>
                 </div>
 
-                {/* Stats */}
-                <div className="ac-col-stat">
-                  <span className="ac-stat-val"><Users size={12} /> {ch.subs}</span>
-                </div>
-                <div className="ac-col-stat">
-                  <span className="ac-stat-val"><Eye size={12} /> {ch.views}</span>
-                </div>
-                <div className="ac-col-stat">
-                  <span className="ac-stat-val"><Clock size={12} /> {ch.watchTime}</span>
-                </div>
-                <div className="ac-col-stat">
-                  <span className="ac-stat-val"><TrendingUp size={12} /> {ch.ctr}</span>
-                </div>
-                <div className="ac-col-stat">
-                  <span className="ac-stat-val"><DollarSign size={12} /> {ch.revenue}</span>
+                {/* Last Upload */}
+                <div className="ac-col-upload">
+                  <div className="ac-upload-info">
+                    <span className="ac-upload-time"><Calendar size={12} /> {ch.lastUpload}</span>
+                    <span className="ac-upload-pill" style={{ background: uploadStyle.bg, color: uploadStyle.color }}>
+                      {ch.uploadStatus}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Actions */}
-                <div className="ac-col-actions ac-actions-btns">
-                  <a href={`https://studio.youtube.com/channel/${ch.id}`} target="_blank" rel="noreferrer" className="icon-btn-sm" title="Open in YouTube Studio">
-                    <ExternalLink size={14} />
-                  </a>
-                  <button className="icon-btn-sm" title="Settings" onClick={() => navigate('/youtube/account')}>
-                    <Settings size={14} />
-                  </button>
-                  <button className="icon-btn-sm danger" title="Remove" onClick={() => handleDelete(ch.id)}>
-                    <Trash2 size={14} />
-                  </button>
+                {/* Overall Trend */}
+                <div className="ac-col-trend">
+                  <div className="ac-trend-box" style={{ color: trendCfg.color }}>
+                    <TrendIcon size={16} />
+                    <span>{trendCfg.label}</span>
+                  </div>
+                </div>
+
+                {/* Stats with mini-trends */}
+                <div className="ac-col-stat">
+                  <div className="ac-stat-group">
+                    <span className="ac-stat-val"><Users size={12} /> {ch.subs}</span>
+                    <TrendValue trend={ch.subsTrend} />
+                  </div>
+                </div>
+                <div className="ac-col-stat">
+                  <div className="ac-stat-group">
+                    <span className="ac-stat-val"><Eye size={12} /> {ch.views}</span>
+                    <TrendValue trend={ch.viewsTrend} />
+                  </div>
+                </div>
+                <div className="ac-col-stat">
+                  <div className="ac-stat-group">
+                    <span className="ac-stat-val"><Clock size={12} /> {ch.watchTime}</span>
+                    <TrendValue trend={ch.watchTrend} />
+                  </div>
+                </div>
+                <div className="ac-col-stat">
+                  <div className="ac-stat-group">
+                    <span className="ac-stat-val"><DollarSign size={12} /> {ch.revenue}</span>
+                    <TrendValue trend={ch.revTrend} />
+                  </div>
+                </div>
+
+                {/* Row Footer: Last Video Perf & Actions */}
+                <div className="ac-col-actions ac-row-actions">
+                  <div className="ac-last-perf-box">
+                    <span className="ac-last-perf-label">Last Video:</span>
+                    <span className="ac-last-perf-val">{ch.lastVideoPerf}</span>
+                  </div>
+                  <div className="ac-actions-btns">
+                    <a href={`https://studio.youtube.com/channel/${ch.id}`} target="_blank" rel="noreferrer" className="icon-btn-sm" title="Open in YouTube Studio">
+                      <ExternalLink size={14} />
+                    </a>
+                    <button className="icon-btn-sm" title="Settings" onClick={() => navigate('/youtube/account')}>
+                      <Settings size={14} />
+                    </button>
+                    <button className="icon-btn-sm danger" title="Remove" onClick={() => handleDelete(ch.id)}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             );
