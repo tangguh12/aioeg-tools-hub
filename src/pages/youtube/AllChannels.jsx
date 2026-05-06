@@ -46,14 +46,15 @@ function CategoryManagerDrawer({ categories, channels, onClose, onUpdateChannels
   const [newCat, setNewCat] = useState('');
   
   const addCategory = () => {
-    if (newCat.trim() && !categories.includes(newCat.trim())) {
-      onUpdateCategories([...categories, newCat.trim()]);
+    const trimmed = newCat.trim();
+    if (trimmed && !categories.includes(trimmed)) {
+      onUpdateCategories(prev => [...prev, trimmed]);
       setNewCat('');
     }
   };
 
   const deleteCategory = (cat) => {
-    onUpdateCategories(categories.filter(c => c !== cat));
+    onUpdateCategories(prev => prev.filter(c => c !== cat));
     // Move channels in this category to Uncategorized
     const updatedChannels = channels.map(ch => ch.niche === cat ? { ...ch, niche: 'Uncategorized' } : ch);
     onUpdateChannels(updatedChannels);
@@ -73,7 +74,7 @@ function CategoryManagerDrawer({ categories, channels, onClose, onUpdateChannels
             <h3 className="h3">Manage Categories</h3>
             <p className="p-muted">Organize your channels into niches.</p>
           </div>
-          <button className="icon-btn" onClick={onClose}><X size={18} /></button>
+          <button className="icon-btn" type="button" onClick={onClose}><X size={18} /></button>
         </div>
 
         <div className="drawer-body">
@@ -87,27 +88,32 @@ function CategoryManagerDrawer({ categories, channels, onClose, onUpdateChannels
                 onChange={e => setNewCat(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && addCategory()}
               />
-              <button className="btn btn-primary" onClick={addCategory}><Plus size={16} /></button>
+              <button className="btn btn-primary" type="button" onClick={addCategory}>
+                <Plus size={16} />
+              </button>
             </div>
           </div>
 
           <div className="cat-manage-list">
             <label className="section-label">Existing Categories</label>
-            {categories.length === 0 && <p className="p-muted text-center py-4">No custom categories yet.</p>}
-            {categories.map(cat => (
-              <div key={cat} className="cat-manage-item">
-                <div className="cat-item-info">
-                  <Tag size={14} />
-                  <span>{cat}</span>
-                  <span className="cat-count-badge">
-                    {channels.filter(c => c.niche === cat).length} channels
-                  </span>
+            {!categories || categories.length === 0 ? (
+              <p className="p-muted text-center py-4">No custom categories yet.</p>
+            ) : (
+              categories.map(cat => (
+                <div key={cat} className="cat-manage-item">
+                  <div className="cat-item-info">
+                    <Tag size={14} />
+                    <span>{cat}</span>
+                    <span className="cat-count-badge">
+                      {channels.filter(c => c.niche === cat).length} channels
+                    </span>
+                  </div>
+                  <button className="icon-btn-sm danger" type="button" onClick={() => deleteCategory(cat)} title="Delete Category">
+                    <Trash2 size={14} />
+                  </button>
                 </div>
-                <button className="icon-btn-sm danger" onClick={() => deleteCategory(cat)} title="Delete Category">
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))}
+              ))
+            )}
           </div>
           
           <div className="cat-special-item">
