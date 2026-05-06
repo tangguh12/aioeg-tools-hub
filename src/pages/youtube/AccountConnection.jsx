@@ -1,8 +1,32 @@
 import { motion } from 'framer-motion';
-import { Play, Link2, CheckCircle2, AlertCircle, RefreshCw, Plus } from 'lucide-react';
+import { Play, CheckCircle2, AlertCircle, RefreshCw, Plus } from 'lucide-react';
+import { useGoogleLogin } from '@react-oauth/google';
 import './AccountConnection.css';
 
 export default function AccountConnection() {
+  const clientId = import.meta.env.VITE_YOUTUBE_CLIENT_ID;
+  
+  const login = useGoogleLogin({
+    onSuccess: (codeResponse) => {
+      console.log('Login Success:', codeResponse);
+      alert('Google Account Connected Successfully!');
+    },
+    onNonOAuthError: (error) => {
+      console.error('Non-OAuth Error:', error);
+    },
+    onError: (error) => console.error('Login Failed:', error),
+    scope: 'https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.force-ssl',
+  });
+
+  const handleLogin = () => {
+    console.log('Attempting to login with Client ID:', clientId);
+    if (!clientId || clientId === 'YOUR_CLIENT_ID_HERE') {
+      alert('Error: Client ID YouTube belum dikonfigurasi di Netlify!');
+      return;
+    }
+    login();
+  };
+
   const connectedAccounts = [
     { email: 'admin@aioeg.com', channels: 4, status: 'Connected', lastSync: '2 mins ago', expired: false },
     { email: 'marketing@aioeg.com', channels: 2, status: 'Token Expired', lastSync: '12 hours ago', expired: true },
@@ -26,7 +50,7 @@ export default function AccountConnection() {
             <h3 className="h3">Connect your YouTube Channels</h3>
             <p className="p-muted">Sync your channels to start tracking performance, managing content, and analyzing revenue.</p>
           </div>
-          <button className="btn btn-primary">
+          <button className="btn btn-primary" onClick={handleLogin}>
             <Plus size={18} /> Connect Google Account
           </button>
         </div>
