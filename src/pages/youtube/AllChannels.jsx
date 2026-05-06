@@ -8,7 +8,7 @@ import {
   Search, ChevronDown, Plus, X, Check,
   ExternalLink, Settings, Trash2, TrendingUp, TrendingDown, Minus,
   Users, Eye, Clock, DollarSign, Tag, ChevronRight, Calendar, AlertCircle,
-  BarChart2, Info, Folder, Edit3, Save, Layers, List, Chrome
+  BarChart2, Info, Folder, Edit3, Save, Layers, List, Youtube
 } from 'lucide-react';
 import './AllChannels.css';
 
@@ -221,7 +221,7 @@ function AddChannelDrawer({ onClose, onAdd, classifications }) {
         <div className="drawer-body">
           {!isConnected ? (
             <div className="auth-step">
-              <div className="auth-icon-box"><Chrome size={40} /></div>
+              <div className="auth-icon-box"><Youtube size={40} /></div>
               <h4 className="text-center font-bold mb-4">Connect Your Channel</h4>
               <p className="p-muted text-center mb-12">Login with Google to automatically import your channel data and analytics.</p>
               
