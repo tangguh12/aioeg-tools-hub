@@ -8,7 +8,7 @@ import {
   Search, ChevronDown, Plus, X, Check,
   ExternalLink, Settings, Trash2, TrendingUp, TrendingDown, Minus,
   Users, Eye, Clock, DollarSign, Tag, ChevronRight, Calendar, AlertCircle,
-  BarChart2, Info, Folder, Edit3, Save, Layers, List
+  BarChart2, Info, Folder, Edit3, Save, Layers, List, Chrome
 } from 'lucide-react';
 import './AllChannels.css';
 
@@ -183,60 +183,91 @@ function ChannelSettingsDrawer({ channel, classifications, onClose, onUpdate }) 
   );
 }
 
-// ── Add Channel Drawer ────────────────────────────────────────────────
+// ── Add Channel Drawer (Google Auth Flow) ───────────────────────────
 function AddChannelDrawer({ onClose, onAdd, classifications }) {
-  const [step, setStep] = useState(1);
-  const [form, setForm] = useState({ name: '', category: 'Uncategorized', niche: 'Uncategorized', status: 'Active' });
+  const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [form, setForm] = useState({ name: 'New Connected Channel', category: 'Uncategorized', niche: 'Uncategorized', status: 'Active' });
+
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const simulateConnect = () => {
+    setIsConnecting(true);
+    setTimeout(() => {
+      setIsConnected(true);
+      setIsConnecting(false);
+    }, 1500);
+  };
+
+  const handleFinish = () => {
+    onAdd({
+      ...form,
+      id: Date.now(),
+      avatar: form.name.substring(0, 2).toUpperCase(),
+      subs: '0', views: '0', watchTime: '0', revenue: '0',
+      lastUpload: 'Just added', trend: 'stable'
+    });
+    onClose();
+  };
 
   return (
     <motion.div className="drawer-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
       <motion.div className="drawer-panel" onClick={e => e.stopPropagation()} initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}>
         <div className="drawer-header">
-          <div><h3 className="h3">Add New Channel</h3><p className="p-muted">Step {step} of 3</p></div>
+          <div><h3 className="h3">Add Channel</h3><p className="p-muted">Import from Google Account</p></div>
           <button className="icon-btn" onClick={onClose}><X size={18} /></button>
         </div>
+
         <div className="drawer-body">
-          {step === 1 && (
-            <div className="form-group">
-              <label>Channel Name</label>
-              <input type="text" placeholder="e.g. My Awesome Channel" value={form.name} onChange={e => set('name', e.target.value)} />
-              <button className="btn btn-primary mt-12" onClick={() => form.name && setStep(2)} disabled={!form.name.trim()}>Next</button>
+          {!isConnected ? (
+            <div className="auth-step">
+              <div className="auth-icon-box"><Chrome size={40} /></div>
+              <h4 className="text-center font-bold mb-4">Connect Your Channel</h4>
+              <p className="p-muted text-center mb-12">Login with Google to automatically import your channel data and analytics.</p>
+              
+              <button 
+                className={`btn btn-primary btn-full ${isConnecting ? 'loading' : ''}`} 
+                onClick={simulateConnect}
+                disabled={isConnecting}
+              >
+                {isConnecting ? 'Connecting...' : 'Sign in with Google'}
+              </button>
             </div>
-          )}
-          {step === 2 && (
-            <div className="drawer-step-content">
+          ) : (
+            <motion.div className="setup-step" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+              <div className="connected-info mb-24">
+                <div className="check-badge"><Check size={14} /></div>
+                <div>
+                  <div className="font-bold text-main">Channel Connected!</div>
+                  <div className="text-xs text-dim">Please select category and niche below.</div>
+                </div>
+              </div>
+
               <div className="form-group">
                 <label>Category</label>
                 <div className="cat-grid">
-                  {['Uncategorized', ...Object.keys(classifications)].map(c => <button key={c} className={`cat-chip ${form.category === c ? 'active' : ''}`} onClick={() => { set('category', c); set('niche', classifications[c]?.[0] || 'Uncategorized'); }}>{c}</button>)}
+                  {['Uncategorized', ...Object.keys(classifications)].map(c => (
+                    <button key={c} className={`cat-chip ${form.category === c ? 'active' : ''}`} onClick={() => { set('category', c); set('niche', classifications[c]?.[0] || 'Uncategorized'); }}>{c}</button>
+                  ))}
                 </div>
               </div>
+
               {form.category !== 'Uncategorized' && (
                 <div className="form-group">
                   <label>Niche</label>
                   <div className="cat-grid">
-                    {classifications[form.category]?.map(n => <button key={n} className={`cat-chip ${form.niche === n ? 'active' : ''}`} onClick={() => set('niche', n)}>{n}</button>)}
+                    {classifications[form.category]?.map(n => (
+                      <button key={n} className={`cat-chip ${form.niche === n ? 'active' : ''}`} onClick={() => set('niche', n)}>{n}</button>
+                    ))}
                   </div>
                 </div>
               )}
-              <div className="drawer-nav">
-                <button className="btn btn-secondary" onClick={() => setStep(1)}>Back</button>
-                <button className="btn btn-primary" onClick={() => setStep(3)}>Next</button>
+
+              <div className="drawer-footer-inline mt-24">
+                <button className="btn btn-secondary" onClick={() => setIsConnected(false)}>Back</button>
+                <button className="btn btn-primary" onClick={handleFinish}>Add to Hub</button>
               </div>
-            </div>
-          )}
-          {step === 3 && (
-            <div className="drawer-step-content">
-              <div className="confirm-card">
-                <div className="confirm-name">{form.name}</div>
-                <div className="confirm-meta">{form.category} · {form.niche}</div>
-              </div>
-              <div className="drawer-nav">
-                <button className="btn btn-secondary" onClick={() => setStep(2)}>Back</button>
-                <button className="btn btn-primary" onClick={() => { onAdd({ ...form, id: Date.now(), avatar: form.name.substring(0, 2).toUpperCase(), subs: '0', views: '0', watchTime: '0', revenue: '0', lastUpload: 'Just added', trend: 'stable' }); onClose(); }}>Finish</button>
-              </div>
-            </div>
+            </motion.div>
           )}
         </div>
       </motion.div>
