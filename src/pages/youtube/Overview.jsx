@@ -90,7 +90,7 @@ export default function Overview() {
         </div>
         <div className="page-actions">
           <button className="btn btn-secondary"><Download size={16} /> {t('exportData')}</button>
-          <button className="btn btn-primary"><Plus size={16} /> {t('addChannel')}</button>
+          <button className="btn btn-primary" onClick={() => navigate('/youtube/account')}><Plus size={16} /> {t('addChannel')}</button>
         </div>
       </header>
 

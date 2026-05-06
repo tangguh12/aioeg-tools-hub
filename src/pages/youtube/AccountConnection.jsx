@@ -87,7 +87,7 @@ export default function AccountConnection() {
                 </div>
                 <div className="account-actions">
                   {account.expired ? (
-                    <button className="btn-small btn-warning">Reconnect</button>
+                    <button className="btn-small btn-warning" onClick={handleLogin}>Reconnect</button>
                   ) : (
                     <button className="btn-small btn-secondary">Manage</button>
                   )}
