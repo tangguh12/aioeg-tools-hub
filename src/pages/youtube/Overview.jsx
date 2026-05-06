@@ -97,6 +97,41 @@ export default function Overview() {
   const reviewChannels = criticalCount;
   const lastSyncTime = connectedAccounts[0]?.lastSync || null;
 
+  // Build real chart data from analytics chartRows
+  const realChartData = (() => {
+    if (!hasRealData) return null;
+    // Collect all chartRows from all channels, aggregated by date
+    const dateMap = {};
+    allChannels.forEach(ch => {
+      (ch.analytics?.chartRows || []).forEach(row => {
+        // row format: [date, views, watchTimeMinutes, avgAVDSec, avgRetentionPct]
+        const date = row[0];
+        if (!dateMap[date]) {
+          dateMap[date] = { date, views: 0, watchTime: 0, retention: 0, retentionCount: 0, ctr: 0, revenue: 0 };
+        }
+        dateMap[date].views += row[1] || 0;
+        dateMap[date].watchTime += Math.round((row[2] || 0) / 60); // convert mins to hours
+        dateMap[date].retention += row[4] || 0;
+        dateMap[date].retentionCount += 1;
+      });
+    });
+
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return Object.values(dateMap)
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .map(d => ({
+        name: days[new Date(d.date).getDay()],
+        fullDate: d.date,
+        views: d.views,
+        watchTime: d.watchTime,
+        retention: d.retentionCount > 0 ? parseFloat((d.retention / d.retentionCount).toFixed(1)) : 0,
+        ctr: d.ctr,
+        revenue: d.revenue,
+      }));
+  })();
+
+  const activeChartData = realChartData || chartData;
+
   const metrics = [
     { id: 'views', label: locale === 'id' ? 'Penayangan' : 'Views', color: '#6366f1' },
     { id: 'watchTime', label: locale === 'id' ? 'Waktu Tonton' : 'Watch Time', color: '#10b981' },
@@ -173,7 +208,7 @@ export default function Overview() {
         </div>
         <div className="chart-container">
           <ResponsiveContainer width="100%" height={400}>
-            <AreaChart data={chartData}>
+            <AreaChart data={activeChartData}>
               <defs>
                 <linearGradient id="colorMetric" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor={metrics.find(m => m.id === activeMetric).color} stopOpacity={0.3}/>
