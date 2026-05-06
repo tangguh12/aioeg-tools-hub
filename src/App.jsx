@@ -6,6 +6,7 @@ import AccountConnection from './pages/youtube/AccountConnection';
 import Comments from './pages/youtube/Comments';
 import NeedsAttention from './pages/youtube/NeedsAttention';
 import HallOfFame from './pages/youtube/HallOfFame';
+import AllChannels from './pages/youtube/AllChannels';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="/youtube/comments" element={<Comments />} />
           <Route path="/youtube/needs-attention" element={<NeedsAttention />} />
           <Route path="/youtube/hall-of-fame" element={<HallOfFame />} />
+          <Route path="/youtube/channels" element={<AllChannels />} />
           {/* Add other routes as needed */}
           <Route path="*" element={<YTOverview />} />
         </Routes>
