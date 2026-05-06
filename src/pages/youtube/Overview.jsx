@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import { 
   kpiData as rawKpiData, 
   hallOfFame, 
@@ -22,24 +23,49 @@ import {
 import { 
   TrendingUp, 
   TrendingDown, 
-  Search, 
-  Calendar, 
   Download, 
   Plus, 
-  RefreshCw, 
+  RefreshCw,
   AlertTriangle, 
   Award, 
   Activity, 
   DollarSign,
   ArrowRight,
-  Clock
+  Clock,
+  Users,
+  Eye,
+  Video,
+  CheckCircle2
 } from 'lucide-react';
 import './Overview.css';
 
 export default function Overview() {
   const { t, locale } = useLanguage();
   const navigate = useNavigate();
+  const { allChannels, connectedAccounts, isLoading } = useAuth();
   const [activeMetric, setActiveMetric] = useState('views');
+
+  const hasRealData = allChannels.length > 0;
+
+  // --- Build real KPI data from connected channels ---
+  const realKpis = hasRealData ? (() => {
+    const totalSubs = allChannels.reduce((s, ch) => s + parseInt(ch.subscribers || 0), 0);
+    const totalViews28d = allChannels.reduce((s, ch) => s + (ch.analytics?.views28d || 0), 0);
+    const totalWatchTime = allChannels.reduce((s, ch) => s + (ch.analytics?.watchTimeHours || 0), 0);
+    const avgCTR = allChannels.reduce((s, ch) => s + parseFloat(ch.analytics?.ctr || 0), 0) / allChannels.length;
+    const avgRetention = allChannels.reduce((s, ch) => s + parseFloat(ch.analytics?.avgRetention || 0), 0) / allChannels.length;
+
+    const fmt = (n) => n >= 1000000 ? (n/1000000).toFixed(1)+'M' : n >= 1000 ? (n/1000).toFixed(1)+'K' : n.toString();
+
+    return [
+      { label: locale === 'id' ? 'Total Subscriber' : 'Total Subscribers', value: fmt(totalSubs), trend: '', isPositive: true, unit: '' },
+      { label: locale === 'id' ? 'Penayangan (28 Hari)' : 'Views (28 Days)', value: fmt(totalViews28d), trend: '', isPositive: true, unit: '' },
+      { label: locale === 'id' ? 'Waktu Tonton' : 'Watch Time', value: fmt(totalWatchTime), trend: '', isPositive: true, unit: 'hrs' },
+      { label: 'Avg CTR', value: avgCTR.toFixed(2) + '%', trend: '', isPositive: avgCTR > 4, unit: '' },
+      { label: locale === 'id' ? 'Avg Retensi' : 'Avg Retention', value: avgRetention.toFixed(1) + '%', trend: '', isPositive: avgRetention > 40, unit: '' },
+      { label: locale === 'id' ? 'Total Video' : 'Total Videos', value: allChannels.reduce((s, ch) => s + parseInt(ch.videoCount || 0), 0).toString(), trend: '', isPositive: true, unit: '' },
+    ];
+  })() : null;
 
   // Human readable mapping for KPI labels
   const kpiLabels = {
@@ -51,7 +77,7 @@ export default function Overview() {
     totalRevenue: locale === 'id' ? 'Estimasi Pendapatan' : 'Estimated Revenue'
   };
 
-  const kpiData = rawKpiData.map(stat => ({
+  const kpiData = realKpis || rawKpiData.map(stat => ({
     ...stat,
     label: kpiLabels[stat.labelKey] || stat.label
   }));
@@ -65,9 +91,11 @@ export default function Overview() {
   const revChampion = hallOfFame.find(h => h.category === 'Revenue Champion');
   const ctrChampion = hallOfFame.find(h => h.category === 'CTR Champion');
 
-  const activeChannels = channels.filter(c => c.status === 'Active').length;
-  const growingChannels = 4; // Mocking
+  // Use real channel count if available, otherwise mock
+  const activeChannels = hasRealData ? allChannels.length : channels.filter(c => c.status === 'Active').length;
+  const growingChannels = hasRealData ? allChannels.filter(ch => ch.analytics?.views28d > 0).length : 4;
   const reviewChannels = criticalCount;
+  const lastSyncTime = connectedAccounts[0]?.lastSync || null;
 
   const metrics = [
     { id: 'views', label: locale === 'id' ? 'Penayangan' : 'Views', color: '#6366f1' },
@@ -84,8 +112,18 @@ export default function Overview() {
           <h2 className="h2">{locale === 'id' ? 'Ikhtisar Operasi YouTube' : 'YouTube Operations Overview'}</h2>
           <p className="p-muted">{locale === 'id' ? 'Pantau kesehatan, performa, dan pendapatan semua saluran YouTube dalam sekejap.' : 'Monitor the overall health, performance, and revenue of all YouTube channels at a glance.'}</p>
           <div className="sync-info">
-            <Clock size={12} />
-            <span>{locale === 'id' ? 'Sinkronisasi terakhir: 2 menit yang lalu' : 'Last sync: 2 minutes ago'}</span>
+            {isLoading ? <RefreshCw size={12} className="spinning" /> : <Clock size={12} />}
+            <span>
+              {isLoading
+                ? (locale === 'id' ? 'Mengambil data...' : 'Fetching data...')
+                : lastSyncTime
+                  ? `${locale === 'id' ? 'Sinkronisasi terakhir' : 'Last sync'}: ${lastSyncTime}`
+                  : (locale === 'id' ? 'Sinkronisasi terakhir: 2 menit yang lalu' : 'Last sync: 2 minutes ago')
+              }
+            </span>
+            {hasRealData && (
+              <span className="live-badge"><CheckCircle2 size={10} /> Live Data</span>
+            )}
           </div>
         </div>
         <div className="page-actions">

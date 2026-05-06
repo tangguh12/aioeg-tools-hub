@@ -19,7 +19,11 @@ export default function AccountConnection() {
     },
     onNonOAuthError: (error) => console.error('Non-OAuth Error:', error),
     onError: (error) => console.error('Login Failed:', error),
-    scope: 'https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.force-ssl',
+    scope: [
+      'https://www.googleapis.com/auth/youtube.readonly',
+      'https://www.googleapis.com/auth/youtube.force-ssl',
+      'https://www.googleapis.com/auth/yt-analytics.readonly',
+    ].join(' '),
   });
 
   const handleLogin = () => {
