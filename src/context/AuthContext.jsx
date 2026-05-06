@@ -14,30 +14,56 @@ export function AuthProvider({ children }) {
   const fetchAnalyticsForChannel = async (channelId, token) => {
     const endDate = new Date().toISOString().split('T')[0];
     const startDate = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
     try {
+      // Query 1: Core performance metrics (valid, non-deprecated)
       const res = await fetch(
-        `https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==${channelId}&startDate=${startDate}&endDate=${endDate}&metrics=views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,annotationClickThroughRate&dimensions=day&sort=day`,
+        `https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==${channelId}&startDate=${startDate}&endDate=${endDate}&metrics=views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage&dimensions=day&sort=day`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const data = await res.json();
-      if (data.error) return null;
+
+      if (data.error) {
+        console.error('Analytics API error:', JSON.stringify(data.error));
+        return null;
+      }
 
       const rows = data.rows || [];
       const totals = rows.reduce((acc, row) => ({
         views: acc.views + (row[1] || 0),
         watchTime: acc.watchTime + (row[2] || 0),
-        avgAVD: row[3] || 0,
-        avgRetention: row[4] || 0,
-        ctr: row[5] || 0,
-      }), { views: 0, watchTime: 0, avgAVD: 0, avgRetention: 0, ctr: 0 });
+        avgAVDSum: acc.avgAVDSum + (row[3] || 0),
+        avgRetentionSum: acc.avgRetentionSum + (row[4] || 0),
+        count: acc.count + 1,
+      }), { views: 0, watchTime: 0, avgAVDSum: 0, avgRetentionSum: 0, count: 0 });
+
+      // Query 2: CTR from impressions (separate query)
+      let ctr = 0;
+      try {
+        const ctrRes = await fetch(
+          `https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==${channelId}&startDate=${startDate}&endDate=${endDate}&metrics=impressions,impressionsClickThroughRate`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const ctrData = await ctrRes.json();
+        if (!ctrData.error && ctrData.rows?.[0]) {
+          ctr = (ctrData.rows[0][1] * 100) || 0;
+        }
+      } catch (e) {
+        console.warn('CTR fetch failed:', e);
+      }
+
+      const count = totals.count || 1;
+      const avgAVDSec = totals.avgAVDSum / count;
+      const avgAVDMin = Math.floor(avgAVDSec / 60);
+      const avgAVDSecRem = Math.round(avgAVDSec % 60);
 
       return {
         views28d: totals.views,
         watchTimeHours: Math.round(totals.watchTime / 60),
-        avgAVD: Math.round(totals.avgAVD),
-        avgRetention: totals.avgRetention.toFixed(1),
-        ctr: totals.ctr.toFixed(2),
-        chartRows: rows,
+        avgAVD: `${avgAVDMin}:${avgAVDSecRem.toString().padStart(2, '0')}`,
+        avgRetention: (totals.avgRetentionSum / count).toFixed(1),
+        ctr: ctr.toFixed(2),
+        chartRows: rows, // [date, views, watchTime, avgAVD, avgRetention]
       };
     } catch (e) {
       console.warn('Analytics fetch failed:', e);
