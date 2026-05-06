@@ -8,7 +8,7 @@ import {
   Search, ChevronDown, Plus, X, Check,
   ExternalLink, Settings, Trash2, TrendingUp, TrendingDown, Minus,
   Users, Eye, Clock, DollarSign, Tag, ChevronRight, Calendar, AlertCircle,
-  BarChart2, Info, MoreHorizontal
+  BarChart2, Info, Folder, Edit3
 } from 'lucide-react';
 import './AllChannels.css';
 
@@ -41,8 +41,93 @@ const TREND_STYLE = {
   'needs-review': { color: '#fbbf24', icon: AlertCircle, label: 'Needs Review', bg: 'rgba(245,158,11,0.1)' }
 };
 
+// ── Category Management Drawer ───────────────────────────────────────
+function CategoryManagerDrawer({ categories, channels, onClose, onUpdateChannels, onUpdateCategories }) {
+  const [newCat, setNewCat] = useState('');
+  
+  const addCategory = () => {
+    if (newCat.trim() && !categories.includes(newCat.trim())) {
+      onUpdateCategories([...categories, newCat.trim()]);
+      setNewCat('');
+    }
+  };
+
+  const deleteCategory = (cat) => {
+    onUpdateCategories(categories.filter(c => c !== cat));
+    // Move channels in this category to Uncategorized
+    const updatedChannels = channels.map(ch => ch.niche === cat ? { ...ch, niche: 'Uncategorized' } : ch);
+    onUpdateChannels(updatedChannels);
+  };
+
+  return (
+    <motion.div className="drawer-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
+      <motion.div
+        className="drawer-panel"
+        onClick={e => e.stopPropagation()}
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+      >
+        <div className="drawer-header">
+          <div>
+            <h3 className="h3">Manage Categories</h3>
+            <p className="p-muted">Organize your channels into niches.</p>
+          </div>
+          <button className="icon-btn" onClick={onClose}><X size={18} /></button>
+        </div>
+
+        <div className="drawer-body">
+          <div className="form-group">
+            <label>Add New Category</label>
+            <div className="cat-input-row">
+              <input 
+                type="text" 
+                placeholder="e.g. Finance, Gaming..." 
+                value={newCat} 
+                onChange={e => setNewCat(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addCategory()}
+              />
+              <button className="btn btn-primary" onClick={addCategory}><Plus size={16} /></button>
+            </div>
+          </div>
+
+          <div className="cat-manage-list">
+            <label className="section-label">Existing Categories</label>
+            {categories.length === 0 && <p className="p-muted text-center py-4">No custom categories yet.</p>}
+            {categories.map(cat => (
+              <div key={cat} className="cat-manage-item">
+                <div className="cat-item-info">
+                  <Tag size={14} />
+                  <span>{cat}</span>
+                  <span className="cat-count-badge">
+                    {channels.filter(c => c.niche === cat).length} channels
+                  </span>
+                </div>
+                <button className="icon-btn-sm danger" onClick={() => deleteCategory(cat)} title="Delete Category">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+          
+          <div className="cat-special-item">
+            <div className="cat-item-info">
+              <Folder size={14} />
+              <span>Uncategorized</span>
+              <span className="cat-count-badge">
+                {channels.filter(c => !c.niche || c.niche === 'Uncategorized').length} channels
+              </span>
+            </div>
+            <span className="p-muted italic text-xs">System Default</span>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 // ── Channel Settings Drawer ──────────────────────────────────────────
-function ChannelSettingsDrawer({ channel, onClose, onUpdate }) {
+function ChannelSettingsDrawer({ channel, categories, onClose, onUpdate }) {
   const [form, setForm] = useState({ ...channel });
   const [newCat, setNewCat] = useState('');
   const [showCatInput, setShowCatInput] = useState(false);
@@ -57,7 +142,6 @@ function ChannelSettingsDrawer({ channel, onClose, onUpdate }) {
         initial={{ x: '100%' }}
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
-        transition={{ type: 'spring', damping: 28, stiffness: 280 }}
       >
         <div className="drawer-header">
           <div>
@@ -75,6 +159,17 @@ function ChannelSettingsDrawer({ channel, onClose, onUpdate }) {
 
           <div className="form-group">
             <label>Category / Niche</label>
+            <div className="cat-grid mb-12">
+              <button 
+                className={`cat-chip ${(!form.niche || form.niche === 'Uncategorized') ? 'active' : ''}`} 
+                onClick={() => set('niche', 'Uncategorized')}
+              >
+                Uncategorized
+              </button>
+              {categories.map(c => (
+                <button key={c} className={`cat-chip ${form.niche === c ? 'active' : ''}`} onClick={() => set('niche', c)}>{c}</button>
+              ))}
+            </div>
             {showCatInput ? (
               <div className="cat-input-row">
                 <input
@@ -85,13 +180,10 @@ function ChannelSettingsDrawer({ channel, onClose, onUpdate }) {
                   onChange={e => setNewCat(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && (set('niche', newCat), setShowCatInput(false), setNewCat(''))}
                 />
-                <button className="btn btn-primary btn-small" onClick={() => { set('niche', newCat); setShowCatInput(false); setNewCat(''); }}>Set</button>
+                <button className="btn btn-primary btn-small" onClick={() => { set('niche', newCat); setShowCatInput(false); setNewCat(''); }}>Add</button>
               </div>
             ) : (
-              <div className="cat-select-box" onClick={() => setShowCatInput(true)}>
-                <span>{form.niche || 'Uncategorized'}</span>
-                <ChevronRight size={14} />
-              </div>
+              <button className="cat-create-btn" onClick={() => setShowCatInput(true)}>+ Create New Category</button>
             )}
           </div>
 
@@ -129,13 +221,12 @@ function ChannelSettingsDrawer({ channel, onClose, onUpdate }) {
 }
 
 // ── Add Channel Drawer ────────────────────────────────────────────────
-function AddChannelDrawer({ onClose, onAdd, existingCategories }) {
+function AddChannelDrawer({ onClose, onAdd, categories }) {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({ name: '', niche: '', status: 'Active', priority: 'Normal', notes: '' });
   const [newCat, setNewCat] = useState('');
   const [showCatInput, setShowCatInput] = useState(false);
-  const [categories] = useState(existingCategories);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -149,7 +240,6 @@ function AddChannelDrawer({ onClose, onAdd, existingCategories }) {
         initial={{ x: '100%' }}
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
-        transition={{ type: 'spring', damping: 28, stiffness: 280 }}
       >
         <div className="drawer-header">
           <div>
@@ -292,13 +382,7 @@ export default function AllChannels() {
         revenue: '—',
         lastUpload: '—',
         trend: 'stable',
-        lastVideo: {
-          title: 'Latest Content',
-          views: '—',
-          ctr: '—',
-          retention: '—',
-          suggestion: 'Waiting for data...'
-        }
+        lastVideo: { title: 'Latest Content', views: '—', ctr: '—', retention: '—', suggestion: 'Waiting for data...' }
       }));
     }
     return mockChannels.map(ch => ({
@@ -317,14 +401,20 @@ export default function AllChannels() {
   };
 
   const [channelList, setChannelList] = useState(buildInitialList);
+  const [categories, setCategories] = useState(() => {
+    const fromChannels = [...new Set(channelList.map(c => c.niche).filter(n => n && n !== 'Uncategorized'))];
+    return fromChannels.length > 0 ? fromChannels : ['Technology', 'Gaming', 'Lifestyle', 'Business'];
+  });
+  
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterCat, setFilterCat] = useState('all');
   const [sortKey, setSortKey] = useState('name');
+  
   const [showAddDrawer, setShowAddDrawer] = useState(false);
+  const [showCatDrawer, setShowCatDrawer] = useState(false);
   const [settingsChannel, setSettingsChannel] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
-
-  const existingCategories = [...new Set(channelList.map(c => c.niche).filter(n => n && n !== 'Uncategorized'))];
 
   const handleUpdate = (updated) => setChannelList(prev => prev.map(c => c.id === updated.id ? updated : c));
   const handleDelete = (id) => setChannelList(prev => prev.filter(c => c.id !== id));
@@ -333,26 +423,43 @@ export default function AllChannels() {
     .filter(c => {
       const matchSearch = !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.niche.toLowerCase().includes(search.toLowerCase());
       const matchStatus = filterStatus === 'all' || c.status === filterStatus;
-      return matchSearch && matchStatus;
+      const matchCat = filterCat === 'all' || (filterCat === 'Uncategorized' ? (!c.niche || c.niche === 'Uncategorized') : c.niche === filterCat);
+      return matchSearch && matchStatus && matchCat;
     })
     .sort((a, b) => sortKey === 'name' ? a.name.localeCompare(b.name) : parseInt(b.subs) - parseInt(a.subs));
 
   return (
     <div className="ac-container">
-      <header className="ac-header">
-        <div>
+      <header className="ac-header-main">
+        <div className="header-info">
           <h2 className="h2">{locale === 'id' ? 'Semua Channel' : 'All Channels'}</h2>
-          <p className="p-muted">Manage and monitor your YouTube network productivity.</p>
+          <p className="p-muted">Manage and organize your YouTube network categories and performance.</p>
+        </div>
+        <div className="header-actions">
+          <button className="btn btn-secondary" onClick={() => setShowCatDrawer(true)}>
+            <Tag size={16} /> Manage Categories
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowAddDrawer(true)}>
+            <Plus size={16} /> Add Channel
+          </button>
         </div>
       </header>
 
       <div className="ac-filters">
         <div className="ac-search">
           <Search size={15} />
-          <input type="text" placeholder="Search channels..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input type="text" placeholder="Search channels or categories..." value={search} onChange={e => setSearch(e.target.value)} />
           {search && <X size={14} className="clear-icon" onClick={() => setSearch('')} />}
         </div>
         <div className="ac-selects">
+          <div className="ac-select-wrap">
+            <select value={filterCat} onChange={e => setFilterCat(e.target.value)}>
+              <option value="all">All Categories</option>
+              <option value="Uncategorized">Uncategorized</option>
+              {categories.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <ChevronDown size={14} />
+          </div>
           <div className="ac-select-wrap">
             <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
               <option value="all">All Status</option>
@@ -403,7 +510,13 @@ export default function AllChannels() {
                       <div className="ac-info">
                         <span className="ac-name">{ch.name}</span>
                         <div className="ac-meta">
-                          <span className="ac-niche">{ch.niche || 'Uncategorized'}</span>
+                          <button 
+                            className="ac-cat-link" 
+                            onClick={(e) => { e.stopPropagation(); setSettingsChannel(ch); }}
+                            title="Click to move category"
+                          >
+                            <Tag size={10} /> {ch.niche || 'Uncategorized'}
+                          </button>
                           <span className="status-pill" style={{ background: status.bg, color: status.color }}>{ch.status}</span>
                         </div>
                       </div>
@@ -426,10 +539,10 @@ export default function AllChannels() {
                     <div className="col-stat"><span className="val-text">{ch.revenue}</span></div>
 
                     <div className="col-act ac-row-actions" onClick={e => e.stopPropagation()}>
-                      <button className="icon-btn-sm" onClick={() => setSettingsChannel(ch)} title="Settings">
-                        <Settings size={14} />
+                      <button className="icon-btn-sm" onClick={() => setSettingsChannel(ch)} title="Edit Channel / Move Category">
+                        <Edit3 size={14} />
                       </button>
-                      <button className="icon-btn-sm" onClick={() => setExpandedId(isExpanded ? null : ch.id)} title="Details">
+                      <button className="icon-btn-sm" onClick={() => setExpandedId(isExpanded ? null : ch.id)} title="View Analytics">
                         <BarChart2 size={14} />
                       </button>
                       <button className="icon-btn-sm danger" onClick={() => handleDelete(ch.id)} title="Delete">
@@ -468,7 +581,7 @@ export default function AllChannels() {
                               </div>
                             </div>
                             <div className="details-suggestion">
-                              <div className="sugg-header"><Sparkles size={14} /> Recommended Action</div>
+                              <div className="sugg-header"><Info size={14} /> Recommended Action</div>
                               <p>{ch.lastVideo.suggestion}</p>
                             </div>
                           </div>
@@ -483,7 +596,7 @@ export default function AllChannels() {
         </div>
       </div>
 
-      {/* Floating Add Button */}
+      {/* Floating Add Button remains as quick access */}
       <button className="ac-fab" onClick={() => setShowAddDrawer(true)}>
         <Plus size={20} />
         <span>Add Channel</span>
@@ -493,14 +606,24 @@ export default function AllChannels() {
       <AnimatePresence>
         {showAddDrawer && (
           <AddChannelDrawer
-            existingCategories={existingCategories}
+            categories={categories}
             onClose={() => setShowAddDrawer(false)}
             onAdd={ch => setChannelList(prev => [...prev, ch])}
+          />
+        )}
+        {showCatDrawer && (
+          <CategoryManagerDrawer
+            categories={categories}
+            channels={channelList}
+            onClose={() => setShowCatDrawer(false)}
+            onUpdateCategories={setCategories}
+            onUpdateChannels={setChannelList}
           />
         )}
         {settingsChannel && (
           <ChannelSettingsDrawer
             channel={settingsChannel}
+            categories={categories}
             onClose={() => setSettingsChannel(null)}
             onUpdate={handleUpdate}
           />
@@ -509,6 +632,3 @@ export default function AllChannels() {
     </div>
   );
 }
-
-// Sparkles icon replacement if not imported
-const Sparkles = ({ size, className }) => <Info size={size} className={className} />;
