@@ -7,7 +7,8 @@ import { channels as mockChannels } from '../../data/mockData';
 import {
   Search, ChevronDown, Plus, X, Check,
   ExternalLink, Settings, Trash2, TrendingUp, TrendingDown, Minus,
-  Users, Eye, Clock, DollarSign, Tag, ChevronRight, Calendar, AlertCircle
+  Users, Eye, Clock, DollarSign, Tag, ChevronRight, Calendar, AlertCircle,
+  BarChart2, Info, MoreHorizontal
 } from 'lucide-react';
 import './AllChannels.css';
 
@@ -27,228 +28,206 @@ const fmt = (n) => {
 };
 
 const STATUS_STYLE = {
-  Active:    { bg: 'rgba(16,185,129,0.12)',  color: '#34d399' },
-  Testing:   { bg: 'rgba(245,158,11,0.12)',  color: '#fbbf24' },
-  Inactive:  { bg: 'rgba(100,116,139,0.15)', color: '#94a3b8' },
-  Declining: { bg: 'rgba(239,68,68,0.12)',   color: '#f87171' },
-};
-
-const UPLOAD_STATUS_STYLE = {
-  Fresh:          { bg: 'rgba(16,185,129,0.12)',  color: '#34d399' },
-  Active:         { bg: 'rgba(99,102,241,0.12)',  color: '#818cf8' },
-  'Needs Upload': { bg: 'rgba(245,158,11,0.12)',  color: '#fbbf24' },
-  Inactive:       { bg: 'rgba(239,68,68,0.12)',   color: '#f87171' },
+  Active:    { bg: 'rgba(16,185,129,0.1)',  color: '#34d399' },
+  Testing:   { bg: 'rgba(245,158,11,0.1)',  color: '#fbbf24' },
+  Inactive:  { bg: 'rgba(100,116,139,0.12)', color: '#94a3b8' },
+  Declining: { bg: 'rgba(239,68,68,0.1)',   color: '#f87171' },
 };
 
 const TREND_STYLE = {
-  growing:   { color: '#34d399', icon: TrendingUp, label: 'Growing' },
-  declining: { color: '#f87171', icon: TrendingDown, label: 'Declining' },
-  stable:    { color: '#94a3b8', icon: Minus, label: 'Stable' },
-  'needs-review': { color: '#fbbf24', icon: AlertCircle, label: 'Needs Review' }
+  growing:   { color: '#34d399', icon: TrendingUp,   label: 'Growing',   bg: 'rgba(16,185,129,0.1)' },
+  declining: { color: '#f87171', icon: TrendingDown, label: 'Declining', bg: 'rgba(239,68,68,0.1)' },
+  stable:    { color: '#94a3b8', icon: Minus,        label: 'Stable',    bg: 'rgba(255,255,255,0.05)' },
+  'needs-review': { color: '#fbbf24', icon: AlertCircle, label: 'Needs Review', bg: 'rgba(245,158,11,0.1)' }
 };
 
-// ── Trend Component ──────────────────────────────────────────────────
-const TrendValue = ({ trend }) => {
-  if (!trend) return null;
-  const isUp = trend.dir === 'up';
-  const color = isUp ? '#34d399' : '#f87171';
-  const Icon = isUp ? TrendingUp : TrendingDown;
-  
-  return (
-    <span className="ac-metric-trend" style={{ color }}>
-      <Icon size={10} /> {trend.val}
-    </span>
-  );
-};
-
-// ── Default channel list from mock + real data ────────────────────────
-const buildChannelList = (allChannels) => {
-  if (allChannels.length > 0) {
-    return allChannels.map((ch, i) => ({
-      id: ch.id || i,
-      name: ch.title || ch.name || 'Unnamed',
-      avatar: (ch.title || ch.name || 'CH').substring(0, 2).toUpperCase(),
-      thumbnail: ch.thumbnail || null,
-      niche: ch.niche || 'Uncategorized',
-      status: 'Active',
-      priority: 'Normal',
-      notes: '',
-      subs: fmt(ch.subscribers || 0),
-      views: fmt(ch.analytics?.views28d || ch.views || 0),
-      watchTime: ch.analytics?.watchTimeHours ? fmt(ch.analytics.watchTimeHours) + ' hrs' : '—',
-      ctr: ch.analytics?.ctr ? ch.analytics.ctr + '%' : '—',
-      retention: ch.analytics?.avgRetention ? ch.analytics.avgRetention + '%' : '—',
-      revenue: '—',
-      lastUpload: '—',
-      uploadStatus: 'Active',
-      trend: 'stable',
-      lastVideoPerf: ch.analytics?.ctr ? `${ch.analytics.ctr}% CTR · ${ch.analytics.avgRetention}% ret.` : '—',
-      isReal: true,
-    }));
-  }
-  return mockChannels.map(ch => ({
-    ...ch,
-    avatar: ch.avatar || ch.name.substring(0, 2).toUpperCase(),
-    thumbnail: null,
-    niche: ch.niche || 'Uncategorized',
-    priority: 'Normal',
-    notes: '',
-    isReal: false,
-  }));
-};
-
-// ── Add Channel Drawer ────────────────────────────────────────────────
-function AddChannelDrawer({ onClose, onAdd, existingCategories }) {
-  const { locale } = useLanguage();
-  const navigate = useNavigate();
-  const [step, setStep] = useState(1);
-  const [form, setForm] = useState({ name: '', niche: '', status: 'Active', priority: 'Normal', notes: '' });
+// ── Channel Settings Drawer ──────────────────────────────────────────
+function ChannelSettingsDrawer({ channel, onClose, onUpdate }) {
+  const [form, setForm] = useState({ ...channel });
   const [newCat, setNewCat] = useState('');
   const [showCatInput, setShowCatInput] = useState(false);
-  const [categories, setCategories] = useState(existingCategories);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const addCategory = () => {
-    const trimmed = newCat.trim();
-    if (trimmed && !categories.includes(trimmed)) {
-      setCategories(c => [...c, trimmed]);
-      set('niche', trimmed);
-    }
-    setNewCat('');
-    setShowCatInput(false);
-  };
-
-  const steps = ['Connect Account', 'Channel Details', 'Category', 'Settings', 'Confirm'];
-
   return (
-    <motion.div className="drawer-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+    <motion.div className="drawer-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
       <motion.div
         className="drawer-panel"
+        onClick={e => e.stopPropagation()}
         initial={{ x: '100%' }}
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 280 }}
       >
-        {/* Drawer Header */}
         <div className="drawer-header">
           <div>
-            <h3 className="h3">Add New Channel</h3>
-            <p className="p-muted">Step {step} of {steps.length}</p>
+            <h3 className="h3">Channel Settings</h3>
+            <p className="p-muted">{channel.name}</p>
           </div>
           <button className="icon-btn" onClick={onClose}><X size={18} /></button>
         </div>
 
-        {/* Step indicators */}
+        <div className="drawer-body">
+          <div className="form-group">
+            <label>Channel Name</label>
+            <input type="text" value={form.name} onChange={e => set('name', e.target.value)} />
+          </div>
+
+          <div className="form-group">
+            <label>Category / Niche</label>
+            {showCatInput ? (
+              <div className="cat-input-row">
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="New category..."
+                  value={newCat}
+                  onChange={e => setNewCat(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && (set('niche', newCat), setShowCatInput(false), setNewCat(''))}
+                />
+                <button className="btn btn-primary btn-small" onClick={() => { set('niche', newCat); setShowCatInput(false); setNewCat(''); }}>Set</button>
+              </div>
+            ) : (
+              <div className="cat-select-box" onClick={() => setShowCatInput(true)}>
+                <span>{form.niche || 'Uncategorized'}</span>
+                <ChevronRight size={14} />
+              </div>
+            )}
+          </div>
+
+          <div className="form-group">
+            <label>Status</label>
+            <div className="option-row">
+              {['Active', 'Testing', 'Inactive'].map(s => (
+                <button key={s} className={`option-chip ${form.status === s ? 'active' : ''}`} onClick={() => set('status', s)}>{s}</button>
+              ))}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Priority</label>
+            <div className="option-row">
+              {['Normal', 'High'].map(p => (
+                <button key={p} className={`option-chip ${form.priority === p ? 'active' : ''}`} onClick={() => set('priority', p)}>{p}</button>
+              ))}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Notes</label>
+            <textarea placeholder="Notes..." value={form.notes} onChange={e => set('notes', e.target.value)} rows={4} />
+          </div>
+
+          <div className="drawer-footer">
+            <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+            <button className="btn btn-primary" onClick={() => { onUpdate(form); onClose(); }}>Save Changes</button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ── Add Channel Drawer ────────────────────────────────────────────────
+function AddChannelDrawer({ onClose, onAdd, existingCategories }) {
+  const navigate = useNavigate();
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState({ name: '', niche: '', status: 'Active', priority: 'Normal', notes: '' });
+  const [newCat, setNewCat] = useState('');
+  const [showCatInput, setShowCatInput] = useState(false);
+  const [categories] = useState(existingCategories);
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const steps = ['Connect', 'Details', 'Category', 'Settings', 'Confirm'];
+
+  return (
+    <motion.div className="drawer-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
+      <motion.div
+        className="drawer-panel"
+        onClick={e => e.stopPropagation()}
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+      >
+        <div className="drawer-header">
+          <div>
+            <h3 className="h3">Add New Channel</h3>
+            <p className="p-muted">Step {step} of 5</p>
+          </div>
+          <button className="icon-btn" onClick={onClose}><X size={18} /></button>
+        </div>
+
         <div className="drawer-steps">
           {steps.map((s, i) => (
             <div key={s} className={`drawer-step ${i + 1 === step ? 'active' : i + 1 < step ? 'done' : ''}`}>
               <div className="step-dot">{i + 1 < step ? <Check size={10} /> : i + 1}</div>
-              <span className="step-label">{s}</span>
+              {i + 1 === step && <span className="step-label">{s}</span>}
               {i < steps.length - 1 && <div className="step-line" />}
             </div>
           ))}
         </div>
 
-        {/* Step Content */}
         <div className="drawer-body">
           {step === 1 && (
             <div className="drawer-step-content">
-              <p className="drawer-desc">Connect your Google account to import YouTube channels automatically.</p>
-              <button
-                className="btn btn-primary btn-full"
-                onClick={() => { onClose(); navigate('/youtube/account'); }}
-              >
-                <Plus size={16} /> Connect Google Account
+              <p className="drawer-desc">Connect your Google account to import channels automatically.</p>
+              <button className="btn btn-primary btn-full" onClick={() => { onClose(); navigate('/youtube/account'); }}>
+                Connect Google Account
               </button>
-              <div className="drawer-divider"><span>or add manually</span></div>
+              <div className="drawer-divider"><span>or manual entry</span></div>
               <div className="form-group">
                 <label>Channel Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Tech Insider"
-                  value={form.name}
-                  onChange={e => set('name', e.target.value)}
-                />
+                <input type="text" placeholder="e.g. Tech Insider" value={form.name} onChange={e => set('name', e.target.value)} />
               </div>
-              <button className="btn btn-secondary btn-full mt-12" onClick={() => form.name && setStep(2)} disabled={!form.name.trim()}>
-                Continue <ChevronRight size={15} />
+              <button className="btn btn-secondary btn-full" onClick={() => form.name && setStep(2)} disabled={!form.name.trim()}>
+                Next <ChevronRight size={15} />
               </button>
             </div>
           )}
 
           {step === 2 && (
             <div className="drawer-step-content">
-              <p className="drawer-desc">Add details about your channel.</p>
               <div className="form-group">
                 <label>Channel Name</label>
                 <input type="text" value={form.name} onChange={e => set('name', e.target.value)} />
               </div>
               <div className="drawer-nav">
                 <button className="btn btn-secondary" onClick={() => setStep(1)}>Back</button>
-                <button className="btn btn-primary" onClick={() => setStep(3)}>Continue</button>
+                <button className="btn btn-primary" onClick={() => setStep(3)}>Next</button>
               </div>
             </div>
           )}
 
           {step === 3 && (
             <div className="drawer-step-content">
-              <p className="drawer-desc">Choose a category or create your own. This is optional — you can skip it.</p>
               <div className="form-group">
-                <label>Category / Niche <span className="label-opt">(optional)</span></label>
+                <label>Category (Optional)</label>
                 <div className="cat-grid">
-                  <button
-                    className={`cat-chip ${form.niche === '' ? 'active' : ''}`}
-                    onClick={() => set('niche', '')}
-                  >
-                    No Category
-                  </button>
+                  <button className={`cat-chip ${form.niche === '' ? 'active' : ''}`} onClick={() => set('niche', '')}>Uncategorized</button>
                   {categories.map(c => (
-                    <button
-                      key={c}
-                      className={`cat-chip ${form.niche === c ? 'active' : ''}`}
-                      onClick={() => set('niche', c)}
-                    >
-                      {c}
-                    </button>
+                    <button key={c} className={`cat-chip ${form.niche === c ? 'active' : ''}`} onClick={() => set('niche', c)}>{c}</button>
                   ))}
                 </div>
-
                 {showCatInput ? (
                   <div className="cat-input-row">
-                    <input
-                      autoFocus
-                      type="text"
-                      placeholder="e.g. Finance"
-                      value={newCat}
-                      onChange={e => setNewCat(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && addCategory()}
-                    />
-                    <button className="btn btn-primary btn-small" onClick={addCategory}>Add</button>
-                    <button className="btn btn-secondary btn-small" onClick={() => setShowCatInput(false)}>Cancel</button>
+                    <input autoFocus type="text" value={newCat} onChange={e => setNewCat(e.target.value)} />
+                    <button className="btn btn-primary btn-small" onClick={() => { set('niche', newCat); setNewCat(''); setShowCatInput(false); }}>Add</button>
                   </div>
                 ) : (
-                  <button className="cat-create-btn" onClick={() => setShowCatInput(true)}>
-                    <Plus size={13} /> Create Category
-                  </button>
+                  <button className="cat-create-btn" onClick={() => setShowCatInput(true)}>+ Create Category</button>
                 )}
               </div>
-
-              <div className="form-preview">
-                <Tag size={13} />
-                <span>{form.niche || 'Uncategorized'}</span>
-              </div>
-
               <div className="drawer-nav">
                 <button className="btn btn-secondary" onClick={() => setStep(2)}>Back</button>
-                <button className="btn btn-primary" onClick={() => setStep(4)}>Continue</button>
+                <button className="btn btn-primary" onClick={() => setStep(4)}>Next</button>
               </div>
             </div>
           )}
 
           {step === 4 && (
             <div className="drawer-step-content">
-              <p className="drawer-desc">Set channel status and priority for your workflow.</p>
               <div className="form-group">
                 <label>Status</label>
                 <div className="option-row">
@@ -265,41 +244,22 @@ function AddChannelDrawer({ onClose, onAdd, existingCategories }) {
                   ))}
                 </div>
               </div>
-              <div className="form-group">
-                <label>Notes <span className="label-opt">(optional)</span></label>
-                <textarea placeholder="Any notes about this channel..." value={form.notes} onChange={e => set('notes', e.target.value)} rows={3} />
-              </div>
               <div className="drawer-nav">
                 <button className="btn btn-secondary" onClick={() => setStep(3)}>Back</button>
-                <button className="btn btn-primary" onClick={() => setStep(5)}>Continue</button>
+                <button className="btn btn-primary" onClick={() => setStep(5)}>Next</button>
               </div>
             </div>
           )}
 
           {step === 5 && (
             <div className="drawer-step-content">
-              <p className="drawer-desc">Review and confirm before adding the channel.</p>
               <div className="confirm-card">
-                <div className="confirm-avatar" style={{ background: getColor(form.name) + '22', color: getColor(form.name) }}>
-                  {form.name.substring(0, 2).toUpperCase() || 'CH'}
-                </div>
-                <div>
-                  <div className="confirm-name">{form.name || 'Unnamed Channel'}</div>
-                  <div className="confirm-meta">
-                    <span>{form.niche || 'Uncategorized'}</span>
-                    <span>·</span>
-                    <span>{form.status}</span>
-                    <span>·</span>
-                    <span>{form.priority} priority</span>
-                  </div>
-                  {form.notes && <p className="confirm-notes">"{form.notes}"</p>}
-                </div>
+                <div className="confirm-name">{form.name}</div>
+                <div className="confirm-meta">{form.niche || 'Uncategorized'} · {form.status}</div>
               </div>
               <div className="drawer-nav">
                 <button className="btn btn-secondary" onClick={() => setStep(4)}>Back</button>
-                <button className="btn btn-primary" onClick={() => { onAdd({ ...form, id: Date.now(), avatar: form.name.substring(0, 2).toUpperCase(), thumbnail: null, subs: '0', views: '0', watchTime: '—', ctr: '—', retention: '—', revenue: '—', lastUpload: 'Just added', uploadStatus: 'Fresh', trend: 'stable', lastVideoPerf: '—', isReal: false }); onClose(); }}>
-                  <Check size={15} /> Add Channel
-                </button>
+                <button className="btn btn-primary" onClick={() => { onAdd({ ...form, id: Date.now(), avatar: form.name.substring(0, 2).toUpperCase(), subs: '0', views: '0', watchTime: '0', revenue: '0', lastUpload: 'Just added', trend: 'stable' }); onClose(); }}>Finish</button>
               </div>
             </div>
           )}
@@ -315,261 +275,240 @@ export default function AllChannels() {
   const { allChannels } = useAuth();
   const navigate = useNavigate();
 
-  const [channelList, setChannelList] = useState(() => buildChannelList(allChannels));
+  const buildInitialList = () => {
+    if (allChannels.length > 0) {
+      return allChannels.map((ch, i) => ({
+        id: ch.id || i,
+        name: ch.title || ch.name || 'Unnamed',
+        avatar: (ch.title || ch.name || 'CH').substring(0, 2).toUpperCase(),
+        thumbnail: ch.thumbnail || null,
+        niche: ch.niche || 'Uncategorized',
+        status: 'Active',
+        priority: 'Normal',
+        notes: '',
+        subs: fmt(ch.subscribers || 0),
+        views: fmt(ch.analytics?.views28d || 0),
+        watchTime: ch.analytics?.watchTimeHours ? fmt(ch.analytics.watchTimeHours) + 'h' : '0',
+        revenue: '—',
+        lastUpload: '—',
+        trend: 'stable',
+        lastVideo: {
+          title: 'Latest Content',
+          views: '—',
+          ctr: '—',
+          retention: '—',
+          suggestion: 'Waiting for data...'
+        }
+      }));
+    }
+    return mockChannels.map(ch => ({
+      ...ch,
+      subs: ch.subs,
+      views: ch.views,
+      watchTime: ch.watchTime.replace(' hrs', 'h'),
+      lastVideo: {
+        title: ch.video || 'Latest Content',
+        views: ch.rtViews || '—',
+        ctr: ch.ctr || '—',
+        retention: ch.retention || '—',
+        suggestion: ch.trend === 'declining' ? 'Analyze audience drop-off points.' : 'Keep maintaining consistency.'
+      }
+    }));
+  };
+
+  const [channelList, setChannelList] = useState(buildInitialList);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [filterTrend, setFilterTrend] = useState('all');
   const [sortKey, setSortKey] = useState('name');
-  const [showDrawer, setShowDrawer] = useState(false);
+  const [showAddDrawer, setShowAddDrawer] = useState(false);
+  const [settingsChannel, setSettingsChannel] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
 
-  const existingCategories = [...new Set(channelList.map(c => c.niche).filter(Boolean))];
+  const existingCategories = [...new Set(channelList.map(c => c.niche).filter(n => n && n !== 'Uncategorized'))];
 
-  const handleAdd = (newCh) => setChannelList(prev => [...prev, newCh]);
+  const handleUpdate = (updated) => setChannelList(prev => prev.map(c => c.id === updated.id ? updated : c));
   const handleDelete = (id) => setChannelList(prev => prev.filter(c => c.id !== id));
 
-  // Filter + sort
   const filtered = channelList
     .filter(c => {
-      const q = search.toLowerCase();
-      const matchSearch = !q || c.name.toLowerCase().includes(q) || (c.niche || '').toLowerCase().includes(q);
+      const matchSearch = !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.niche.toLowerCase().includes(search.toLowerCase());
       const matchStatus = filterStatus === 'all' || c.status === filterStatus;
-      const matchTrend = filterTrend === 'all' || c.trend === filterTrend;
-      return matchSearch && matchStatus && matchTrend;
+      return matchSearch && matchStatus;
     })
-    .sort((a, b) => {
-      if (sortKey === 'name') return a.name.localeCompare(b.name);
-      if (sortKey === 'subs') return parseInt(b.subs) - parseInt(a.subs);
-      return 0;
-    });
+    .sort((a, b) => sortKey === 'name' ? a.name.localeCompare(b.name) : parseInt(b.subs) - parseInt(a.subs));
 
   return (
     <div className="ac-container">
-      {/* Header */}
       <header className="ac-header">
         <div>
           <h2 className="h2">{locale === 'id' ? 'Semua Channel' : 'All Channels'}</h2>
-          <p className="p-muted">
-            {locale === 'id'
-              ? 'Kelola dan pantau semua channel YouTube yang terhubung.'
-              : 'Manage and monitor all connected YouTube channels.'}
-          </p>
-        </div>
-        <div className="ac-header-stats">
-          <div className="ac-header-stat">
-            <span className="ac-header-stat-val">{channelList.length}</span>
-            <span className="ac-header-stat-lbl">{locale === 'id' ? 'Total Channel' : 'Total Channels'}</span>
-          </div>
-          <div className="ac-header-stat">
-            <span className="ac-header-stat-val">{channelList.filter(c => c.trend === 'growing').length}</span>
-            <span className="ac-header-stat-lbl">Growing</span>
-          </div>
+          <p className="p-muted">Manage and monitor your YouTube network productivity.</p>
         </div>
       </header>
 
-      {/* Filter Bar */}
       <div className="ac-filters">
         <div className="ac-search">
           <Search size={15} />
-          <input
-            type="text"
-            placeholder={locale === 'id' ? 'Cari channel atau kategori...' : 'Search channels or categories...'}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          {search && <button className="ac-clear" onClick={() => setSearch('')}><X size={13} /></button>}
+          <input type="text" placeholder="Search channels..." value={search} onChange={e => setSearch(e.target.value)} />
+          {search && <X size={14} className="clear-icon" onClick={() => setSearch('')} />}
         </div>
         <div className="ac-selects">
-          {[
-            {
-              val: filterStatus, set: setFilterStatus,
-              options: [
-                { v: 'all', l: 'All Status' },
-                { v: 'Active', l: 'Active' },
-                { v: 'Testing', l: 'Testing' },
-                { v: 'Inactive', l: 'Inactive' },
-              ]
-            },
-            {
-              val: filterTrend, set: setFilterTrend,
-              options: [
-                { v: 'all', l: 'All Trends' },
-                { v: 'growing', l: 'Growing' },
-                { v: 'stable', l: 'Stable' },
-                { v: 'declining', l: 'Declining' },
-              ]
-            },
-            {
-              val: sortKey, set: setSortKey,
-              options: [
-                { v: 'name', l: 'Sort: Name' },
-                { v: 'subs', l: 'Sort: Subscribers' },
-              ]
-            },
-          ].map((sel, i) => (
-            <div className="ac-select-wrap" key={i}>
-              <select value={sel.val} onChange={e => sel.set(e.target.value)}>
-                {sel.options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
-              </select>
-              <ChevronDown size={13} className="ac-arrow" />
-            </div>
-          ))}
+          <div className="ac-select-wrap">
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+              <option value="all">All Status</option>
+              <option value="Active">Active</option>
+              <option value="Testing">Testing</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+            <ChevronDown size={14} />
+          </div>
+          <div className="ac-select-wrap">
+            <select value={sortKey} onChange={e => setSortKey(e.target.value)}>
+              <option value="name">Sort: Name</option>
+              <option value="subs">Sort: Subs</option>
+            </select>
+            <ChevronDown size={14} />
+          </div>
         </div>
       </div>
 
-      {/* Channel Count */}
-      <p className="ac-count">
-        {filtered.length} {locale === 'id' ? 'channel' : 'channels'}
-        {!allChannels.length && <span className="ac-mock-note"> · Showing sample data</span>}
-      </p>
-
-      {/* Channel List */}
-      <div className="ac-list">
-        {/* Header Row */}
-        <div className="ac-row ac-list-header">
-          <span className="ac-col-name">Channel</span>
-          <span className="ac-col-upload">Last Upload</span>
-          <span className="ac-col-trend">Trend</span>
-          <span className="ac-col-stat">Subscribers</span>
-          <span className="ac-col-stat">Views (28d)</span>
-          <span className="ac-col-stat">Watch Time</span>
-          <span className="ac-col-stat">Revenue</span>
-          <span className="ac-col-actions">Actions</span>
+      <div className="ac-table">
+        <div className="ac-table-header">
+          <span className="col-ch">Channel</span>
+          <span className="col-up">Last Upload</span>
+          <span className="col-trend">Trend</span>
+          <span className="col-stat">Subs</span>
+          <span className="col-stat">Views</span>
+          <span className="col-stat">Watch</span>
+          <span className="col-stat">Rev</span>
+          <span className="col-act"></span>
         </div>
 
-        <AnimatePresence>
-          {filtered.length === 0 && (
-            <div className="ac-empty">
-              <Users size={32} />
-              <p>No channels found.</p>
-            </div>
-          )}
+        <div className="ac-table-body">
+          <AnimatePresence>
+            {filtered.map((ch) => {
+              const color = getColor(ch.name);
+              const isExpanded = expandedId === ch.id;
+              const trend = TREND_STYLE[ch.trend] || TREND_STYLE.stable;
+              const status = STATUS_STYLE[ch.status] || STATUS_STYLE.Active;
+              const Icon = trend.icon;
 
-          {filtered.map((ch, i) => {
-            const color = getColor(ch.name);
-            const statusStyle = STATUS_STYLE[ch.status] || STATUS_STYLE['Active'];
-            const uploadStyle = UPLOAD_STATUS_STYLE[ch.uploadStatus] || UPLOAD_STATUS_STYLE['Active'];
-            const trendCfg = TREND_STYLE[ch.trend] || TREND_STYLE['stable'];
-            const TrendIcon = trendCfg.icon;
+              return (
+                <div key={ch.id} className={`ac-row-wrap ${isExpanded ? 'is-expanded' : ''}`}>
+                  <div className="ac-row" onClick={() => setExpandedId(isExpanded ? null : ch.id)}>
+                    <div className="col-ch ac-identity">
+                      <div className="ac-avatar" style={{ background: color + '15', color }}>
+                        {ch.thumbnail ? <img src={ch.thumbnail} alt="" /> : ch.avatar}
+                      </div>
+                      <div className="ac-info">
+                        <span className="ac-name">{ch.name}</span>
+                        <div className="ac-meta">
+                          <span className="ac-niche">{ch.niche || 'Uncategorized'}</span>
+                          <span className="status-pill" style={{ background: status.bg, color: status.color }}>{ch.status}</span>
+                        </div>
+                      </div>
+                    </div>
 
-            return (
-              <motion.div
-                key={ch.id}
-                className="ac-row ac-channel-row"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ delay: i * 0.04 }}
-                style={{ '--ch-color': color }}
-              >
-                {/* Channel identity */}
-                <div className="ac-col-name ac-identity">
-                  <div className="ac-avatar" style={{ background: color + '22', color }}>
-                    {ch.thumbnail
-                      ? <img src={ch.thumbnail} alt={ch.name} />
-                      : ch.avatar}
-                  </div>
-                  <div className="ac-identity-info">
-                    <span className="ac-name">{ch.name}</span>
-                    <div className="ac-meta">
-                      <span className="ac-niche">{ch.niche || 'Uncategorized'}</span>
-                      <span className="ac-dot">·</span>
-                      <span className="ac-status-pill" style={{ background: statusStyle.bg, color: statusStyle.color }}>
-                        {ch.status}
+                    <div className="col-up ac-upload-col">
+                      <span className="val-text">{ch.lastUpload}</span>
+                    </div>
+
+                    <div className="col-trend">
+                      <span className="trend-badge" style={{ background: trend.bg, color: trend.color }}>
+                        <Icon size={12} />
+                        {trend.label}
                       </span>
                     </div>
-                  </div>
-                </div>
 
-                {/* Last Upload */}
-                <div className="ac-col-upload">
-                  <div className="ac-upload-info">
-                    <span className="ac-upload-time"><Calendar size={12} /> {ch.lastUpload}</span>
-                    <span className="ac-upload-pill" style={{ background: uploadStyle.bg, color: uploadStyle.color }}>
-                      {ch.uploadStatus}
-                    </span>
-                  </div>
-                </div>
+                    <div className="col-stat"><span className="val-text">{ch.subs}</span></div>
+                    <div className="col-stat"><span className="val-text">{ch.views}</span></div>
+                    <div className="col-stat"><span className="val-text">{ch.watchTime}</span></div>
+                    <div className="col-stat"><span className="val-text">{ch.revenue}</span></div>
 
-                {/* Overall Trend */}
-                <div className="ac-col-trend">
-                  <div className="ac-trend-box" style={{ color: trendCfg.color }}>
-                    <TrendIcon size={16} />
-                    <span>{trendCfg.label}</span>
+                    <div className="col-act ac-row-actions" onClick={e => e.stopPropagation()}>
+                      <button className="icon-btn-sm" onClick={() => setSettingsChannel(ch)} title="Settings">
+                        <Settings size={14} />
+                      </button>
+                      <button className="icon-btn-sm" onClick={() => setExpandedId(isExpanded ? null : ch.id)} title="Details">
+                        <BarChart2 size={14} />
+                      </button>
+                      <button className="icon-btn-sm danger" onClick={() => handleDelete(ch.id)} title="Delete">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                {/* Stats with mini-trends */}
-                <div className="ac-col-stat">
-                  <div className="ac-stat-group">
-                    <span className="ac-stat-val"><Users size={12} /> {ch.subs}</span>
-                    <TrendValue trend={ch.subsTrend} />
-                  </div>
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        className="ac-row-details"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                      >
+                        <div className="details-content">
+                          <div className="details-grid">
+                            <div className="details-box">
+                              <label>Latest Video</label>
+                              <p className="video-title">{ch.lastVideo.title}</p>
+                              <a href="#" className="link-text">Open in Studio <ExternalLink size={12} /></a>
+                            </div>
+                            <div className="details-metrics">
+                              <div className="d-met">
+                                <span className="d-lab">Views</span>
+                                <span className="d-val">{ch.lastVideo.views}</span>
+                              </div>
+                              <div className="d-met">
+                                <span className="d-lab">CTR</span>
+                                <span className="d-val">{ch.lastVideo.ctr}</span>
+                              </div>
+                              <div className="d-met">
+                                <span className="d-lab">Retention</span>
+                                <span className="d-val">{ch.lastVideo.retention}</span>
+                              </div>
+                            </div>
+                            <div className="details-suggestion">
+                              <div className="sugg-header"><Sparkles size={14} /> Recommended Action</div>
+                              <p>{ch.lastVideo.suggestion}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
-                <div className="ac-col-stat">
-                  <div className="ac-stat-group">
-                    <span className="ac-stat-val"><Eye size={12} /> {ch.views}</span>
-                    <TrendValue trend={ch.viewsTrend} />
-                  </div>
-                </div>
-                <div className="ac-col-stat">
-                  <div className="ac-stat-group">
-                    <span className="ac-stat-val"><Clock size={12} /> {ch.watchTime}</span>
-                    <TrendValue trend={ch.watchTrend} />
-                  </div>
-                </div>
-                <div className="ac-col-stat">
-                  <div className="ac-stat-group">
-                    <span className="ac-stat-val"><DollarSign size={12} /> {ch.revenue}</span>
-                    <TrendValue trend={ch.revTrend} />
-                  </div>
-                </div>
-
-                {/* Row Footer: Last Video Perf & Actions */}
-                <div className="ac-col-actions ac-row-actions">
-                  <div className="ac-last-perf-box">
-                    <span className="ac-last-perf-label">Last Video:</span>
-                    <span className="ac-last-perf-val">{ch.lastVideoPerf}</span>
-                  </div>
-                  <div className="ac-actions-btns">
-                    <a href={`https://studio.youtube.com/channel/${ch.id}`} target="_blank" rel="noreferrer" className="icon-btn-sm" title="Open in YouTube Studio">
-                      <ExternalLink size={14} />
-                    </a>
-                    <button className="icon-btn-sm" title="Settings" onClick={() => navigate('/youtube/account')}>
-                      <Settings size={14} />
-                    </button>
-                    <button className="icon-btn-sm danger" title="Remove" onClick={() => handleDelete(ch.id)}>
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
+              );
+            })}
+          </AnimatePresence>
+        </div>
       </div>
 
-      {/* FAB */}
-      <motion.button
-        className="ac-fab"
-        onClick={() => setShowDrawer(true)}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.97 }}
-        title="Add Channel"
-      >
-        <Plus size={18} />
+      {/* Floating Add Button */}
+      <button className="ac-fab" onClick={() => setShowAddDrawer(true)}>
+        <Plus size={20} />
         <span>Add Channel</span>
-      </motion.button>
+      </button>
 
-      {/* Drawer */}
+      {/* Drawers */}
       <AnimatePresence>
-        {showDrawer && (
+        {showAddDrawer && (
           <AddChannelDrawer
-            onClose={() => setShowDrawer(false)}
-            onAdd={handleAdd}
             existingCategories={existingCategories}
+            onClose={() => setShowAddDrawer(false)}
+            onAdd={ch => setChannelList(prev => [...prev, ch])}
+          />
+        )}
+        {settingsChannel && (
+          <ChannelSettingsDrawer
+            channel={settingsChannel}
+            onClose={() => setSettingsChannel(null)}
+            onUpdate={handleUpdate}
           />
         )}
       </AnimatePresence>
     </div>
   );
 }
+
+// Sparkles icon replacement if not imported
+const Sparkles = ({ size, className }) => <Info size={size} className={className} />;
