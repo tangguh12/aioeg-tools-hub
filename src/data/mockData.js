@@ -1,0 +1,221 @@
+export const kpiData = [
+  { label: 'Total Real-Time Views', value: '1.2M', trend: '+12.5%', isPositive: true, unit: '(48h)' },
+  { label: 'Total Watch Time', value: '450K', trend: '+8.2%', isPositive: true, unit: 'hrs' },
+  { label: 'Average CTR', value: '7.8%', trend: '-0.4%', isPositive: false, unit: '' },
+  { label: 'Average Retention', value: '42%', trend: '+1.2%', isPositive: true, unit: '' },
+  { label: 'Average AVD', value: '4:12', trend: '+0:15', isPositive: true, unit: '' },
+  { label: 'Total Estimated Revenue', value: '$24,500', trend: '+18.3%', isPositive: true, unit: '' },
+];
+
+export const hallOfFame = [
+  { category: 'Real-Time Champion', channel: 'Tech Insider', value: '125K', avatar: 'TI', trend: '+5%', color: 'var(--primary)' },
+  { category: 'Watch Time Champion', channel: 'Gaming Pro', value: '85K hrs', avatar: 'GP', trend: '+12%', color: 'var(--secondary)' },
+  { category: 'CTR Champion', channel: 'Cooking Daily', value: '12.4%', avatar: 'CD', trend: '+2%', color: 'var(--success)' },
+  { category: 'Retention Champion', channel: 'ASMR Relax', value: '68%', avatar: 'AR', trend: '+1%', color: 'var(--info)' },
+  { category: 'AVD Champion', channel: 'Movie Essays', value: '12:45', avatar: 'ME', trend: '+0:45', color: 'var(--warning)' },
+  { category: 'Revenue Champion', channel: 'Finance Hub', value: '$8,200', avatar: 'FH', trend: '+22%', color: 'var(--primary)' },
+  { category: 'Fastest Growing', channel: 'AI Future', value: '+450%', avatar: 'AF', trend: 'viral', color: 'var(--danger)' },
+  { category: 'Subscribers Champion', channel: 'Tech Insider', value: '1.2M', avatar: 'TI', trend: '+2%', color: 'var(--primary)' },
+];
+
+export const leaderboards = {
+  'Top Subscribers': [
+    { rank: 1, channel: 'Tech Insider', avatar: 'TI', value: '1.2M', trend: '+2.4%', status: 'Active' },
+    { rank: 2, channel: 'Gaming Pro', avatar: 'GP', value: '850K', trend: '+1.2%', status: 'Active' },
+    { rank: 3, channel: 'Travel Vlogs', avatar: 'TV', value: '680K', trend: '-0.5%', status: 'Declining' },
+    { rank: 4, channel: 'Cooking Daily', avatar: 'CD', value: '450K', trend: '+0.8%', status: 'Active' },
+    { rank: 5, channel: 'Finance Hub', avatar: 'FH', value: '320K', trend: '+5.2%', status: 'Active' },
+  ],
+  'Top Real-Time': [
+    { rank: 1, channel: 'Tech Insider', avatar: 'TI', value: '125K', trend: '+12%', status: 'Active' },
+    { rank: 2, channel: 'Gaming Pro', avatar: 'GP', value: '98K', trend: '+8%', status: 'Active' },
+    { rank: 3, channel: 'AI Future', avatar: 'AF', value: '85K', trend: '+45%', status: 'Active' },
+    { rank: 4, channel: 'Cooking Daily', avatar: 'CD', value: '45K', trend: '-2%', status: 'Active' },
+    { rank: 5, channel: 'Finance Hub', avatar: 'FH', value: '22K', trend: '+15%', status: 'Active' },
+  ],
+  'Top Revenue': [
+    { rank: 1, channel: 'Finance Hub', avatar: 'FH', value: '$8,200', trend: '+22%', status: 'Active' },
+    { rank: 2, channel: 'Tech Insider', avatar: 'TI', value: '$4,200', trend: '+5%', status: 'Active' },
+    { rank: 3, channel: 'Gaming Pro', avatar: 'GP', value: '$3,100', trend: '+12%', status: 'Active' },
+    { rank: 4, channel: 'AI Future', avatar: 'AF', value: '$2,400', trend: '+18%', status: 'Active' },
+    { rank: 5, channel: 'Cooking Daily', avatar: 'CD', value: '$1,800', trend: '+2%', status: 'Active' },
+  ],
+  'Top CTR': [
+    { rank: 1, channel: 'Cooking Daily', avatar: 'CD', value: '12.4%', trend: '+2%', status: 'Active' },
+    { rank: 2, channel: 'AI Future', avatar: 'AF', value: '10.5%', trend: '+4%', status: 'Active' },
+    { rank: 3, channel: 'Finance Hub', avatar: 'FH', value: '9.1%', trend: '+1%', status: 'Active' },
+    { rank: 4, channel: 'Tech Insider', avatar: 'TI', value: '8.5%', trend: '-0.5%', status: 'Active' },
+    { rank: 5, channel: 'Gaming Pro', avatar: 'GP', value: '6.2%', trend: '+0.2%', status: 'Active' },
+  ]
+};
+
+export const needsAttention = [
+  { channel: 'Travel Vlogs', issue: 'Lowest real-time performance', impact: '-45%', status: 'Critical', color: 'var(--danger)' },
+  { channel: 'Vlog Life', issue: 'CTR dropped significantly', impact: '-3.2%', status: 'Warning', color: 'var(--warning)' },
+  { channel: 'Daily News', issue: 'Revenue dropped', impact: '-$450', status: 'Warning', color: 'var(--warning)' },
+  { channel: 'Unboxing 101', issue: 'No upload activity', impact: '7 days', status: 'Notice', color: 'var(--info)' },
+];
+
+export const channels = [
+  { id: 1, name: 'Tech Insider', niche: 'Technology', status: 'Active', subs: '1.2M', rtViews: '125K', ctr: '8.5%', revenue: '$4,200', avatar: 'TI' },
+  { id: 2, name: 'Gaming Pro', niche: 'Gaming', status: 'Active', subs: '850K', rtViews: '98K', ctr: '6.2%', revenue: '$3,100', avatar: 'GP' },
+  { id: 3, name: 'Cooking Daily', niche: 'Lifestyle', status: 'Active', subs: '450K', rtViews: '45K', ctr: '12.4%', revenue: '$1,800', avatar: 'CD' },
+  { id: 4, name: 'Finance Hub', niche: 'Business', status: 'Active', subs: '320K', rtViews: '22K', ctr: '9.1%', revenue: '$5,200', avatar: 'FH' },
+  { id: 5, name: 'AI Future', niche: 'Technology', status: 'Active', subs: '150K', rtViews: '85K', ctr: '10.5%', revenue: '$2,400', avatar: 'AF' },
+  { id: 6, name: 'Travel Vlogs', niche: 'Lifestyle', status: 'Declining', subs: '680K', rtViews: '12K', ctr: '4.5%', revenue: '$900', avatar: 'TV' },
+];
+
+export const monetizationStats = {
+  totalRevenue: '$24,500',
+  last7Days: '$6,200',
+  last28Days: '$24,500',
+  last90Days: '$72,100',
+  rpm: '$4.50',
+  cpm: '$12.80',
+  revPer1k: '$3.20',
+  topEarning: 'Finance Hub',
+  lowestEarning: 'Travel Vlogs',
+  growthTrend: '+15%',
+  payoutProgress: 85,
+};
+
+export const mockComments = [
+  { 
+    id: 1, 
+    author: 'John Doe', 
+    avatar: 'JD', 
+    channel: 'Tech Insider', 
+    text: 'Amazing review! Can you cover the new GPU next?', 
+    time: '2 mins ago', 
+    isNew: true,
+    likes: 45,
+    hasHeart: false,
+    replied: false
+  },
+  { 
+    id: 2, 
+    author: 'Sarah Smith', 
+    avatar: 'SS', 
+    channel: 'Cooking Daily', 
+    text: 'This recipe is a life saver! My family loved it.', 
+    time: '15 mins ago', 
+    isNew: true,
+    likes: 12,
+    hasHeart: true,
+    replied: true,
+    replyText: 'Glad to hear that, Sarah!'
+  },
+  { 
+    id: 3, 
+    author: 'GamerX', 
+    avatar: 'GX', 
+    channel: 'Gaming Pro', 
+    text: 'The frame rate in this game is insane on 4090.', 
+    time: '1 hour ago', 
+    isNew: false,
+    likes: 89,
+    hasHeart: false,
+    replied: false
+  },
+];
+
+export const detailedAlerts = [
+  {
+    id: 1,
+    channel: 'Travel Vlogs',
+    avatar: 'TV',
+    niche: 'Lifestyle',
+    title: 'Real-Time Performance Dropped',
+    desc: 'Real-time views are down 45% in the last 48 hours compared to the previous period.',
+    impact: '-45%',
+    period: 'Last 48h',
+    severity: 'critical',
+    trend: 'down',
+    category: 'Performance',
+    action: 'Review latest upload performance and audience sources.'
+  },
+  {
+    id: 2,
+    channel: 'Vlog Life',
+    avatar: 'VL',
+    niche: 'Personal',
+    title: 'CTR Dropped Significantly',
+    desc: 'CTR is down 3.2% over the last 7 days.',
+    impact: '-3.2%',
+    period: 'Last 7d',
+    severity: 'warning',
+    trend: 'down',
+    category: 'CTR',
+    action: 'Check thumbnail and title to improve click-through rate.'
+  },
+  {
+    id: 3,
+    channel: 'Daily News',
+    avatar: 'DN',
+    niche: 'News',
+    title: 'Revenue Dropped',
+    desc: 'Estimated revenue is down $450 in the last 28 days.',
+    impact: '-$450',
+    period: 'Last 28d',
+    severity: 'warning',
+    trend: 'down',
+    category: 'Revenue',
+    action: 'Review RPM and CPM trends to identify financial leakage.'
+  },
+  {
+    id: 4,
+    channel: 'Unboxing 101',
+    avatar: 'U1',
+    niche: 'Tech',
+    title: 'No Upload Activity',
+    desc: 'No new uploads detected in the past 7 days.',
+    impact: '7 days',
+    period: 'Last 7d',
+    severity: 'notice',
+    trend: 'neutral',
+    category: 'Inactivity',
+    action: 'Publish a new video to maintain channel momentum.'
+  },
+  {
+    id: 5,
+    channel: 'Tech Insider',
+    avatar: 'TI',
+    niche: 'Tech',
+    title: 'Retention Below Average',
+    desc: 'Audience retention has dropped 12% on the last 3 videos.',
+    impact: '-12%',
+    period: 'Last 7d',
+    severity: 'warning',
+    trend: 'down',
+    category: 'Retention',
+    action: 'Improve first 30 seconds of the video to hook viewers.'
+  },
+  {
+    id: 6,
+    channel: 'Gaming Pro',
+    avatar: 'GP',
+    niche: 'Gaming',
+    title: 'Monetization Warning',
+    desc: 'Ad suitability may be impacted on recent high-traffic videos.',
+    impact: 'Risk',
+    period: 'Last 24h',
+    severity: 'critical',
+    trend: 'down',
+    category: 'Monetization',
+    action: 'Check monetization status and review ad suitability guidelines.'
+  },
+  {
+    id: 7,
+    channel: 'Finance Hub',
+    avatar: 'FH',
+    niche: 'Finance',
+    title: 'High Impressions, Low CTR',
+    desc: 'Opportunity to optimize title and thumbnail for viral growth.',
+    impact: 'High',
+    period: 'Current',
+    severity: 'opportunity',
+    trend: 'up',
+    category: 'Growth',
+    action: 'Compare this channel with top-performing channels for title inspiration.'
+  }
+];

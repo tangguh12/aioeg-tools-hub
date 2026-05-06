@@ -1,0 +1,170 @@
+.account-conn-container {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.connection-hero {
+  padding: 40px;
+  margin-bottom: 40px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.1));
+  border: 1px solid var(--primary-glow);
+}
+
+.hero-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 20px;
+}
+
+.youtube-icon-large {
+  width: 80px;
+  height: 80px;
+  background: #ff0000;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 30px rgba(255, 0, 0, 0.3);
+}
+
+.accounts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 500px) {
+  .accounts-grid { grid-template-columns: 1fr; }
+}
+
+.account-card {
+  padding: 20px;
+}
+
+.account-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.account-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.account-avatar {
+  width: 40px;
+  height: 40px;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.account-email {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.account-channels {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.account-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.account-status.active {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+}
+
+.account-status.expired {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+
+.account-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.sync-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.spinning {
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.btn-small {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.btn-warning {
+  background: var(--warning);
+  color: black;
+}
+
+.btn-warning:hover {
+  background: #d97706;
+}
+
+.mt-40 { margin-top: 40px; }
+.mb-20 { margin-bottom: 20px; }
+
+.settings-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: rgba(255,255,255,0.02);
+  border-radius: 10px;
+}
+
+.setting-title {
+  font-weight: 600;
+}
+
+.setting-desc {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.setting-select {
+  background: var(--bg-sidebar);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  padding: 8px;
+  border-radius: 6px;
+  outline: none;
+}
