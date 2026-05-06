@@ -7,7 +7,7 @@ import { channels as mockChannels } from '../../data/mockData';
 import {
   Search, ChevronDown, Plus, X, Check,
   ExternalLink, Settings, Trash2, TrendingUp, TrendingDown, Minus,
-  Users, Eye, Clock, DollarSign, Tag, ChevronRight, Calendar
+  Users, Eye, Clock, DollarSign, Tag, ChevronRight, Calendar, AlertCircle
 } from 'lucide-react';
 import './AllChannels.css';
 
