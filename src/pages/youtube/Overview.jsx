@@ -100,34 +100,39 @@ export default function Overview() {
   // Build real chart data from analytics chartRows
   const realChartData = (() => {
     if (!hasRealData) return null;
-    // Collect all chartRows from all channels, aggregated by date
     const dateMap = {};
     allChannels.forEach(ch => {
       (ch.analytics?.chartRows || []).forEach(row => {
-        // row format: [date, views, watchTimeMinutes, avgAVDSec, avgRetentionPct]
+        // row: [date, views, estimatedMinutesWatched, averageViewDuration, averageViewPercentage]
         const date = row[0];
         if (!dateMap[date]) {
-          dateMap[date] = { date, views: 0, watchTime: 0, retention: 0, retentionCount: 0, ctr: 0, revenue: 0 };
+          dateMap[date] = { date, views: 0, watchMinutes: 0, retention: 0, retentionCount: 0 };
         }
-        dateMap[date].views += row[1] || 0;
-        dateMap[date].watchTime += Math.round((row[2] || 0) / 60); // convert mins to hours
-        dateMap[date].retention += row[4] || 0;
+        dateMap[date].views += Math.round(row[1] || 0);
+        dateMap[date].watchMinutes += (row[2] || 0); // accumulate raw minutes - convert at end
+        dateMap[date].retention += (row[4] || 0);
         dateMap[date].retentionCount += 1;
       });
     });
 
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     return Object.values(dateMap)
       .sort((a, b) => new Date(a.date) - new Date(b.date))
-      .map(d => ({
-        name: days[new Date(d.date).getDay()],
-        fullDate: d.date,
-        views: d.views,
-        watchTime: d.watchTime,
-        retention: d.retentionCount > 0 ? parseFloat((d.retention / d.retentionCount).toFixed(1)) : 0,
-        ctr: d.ctr,
-        revenue: d.revenue,
-      }));
+      .map(d => {
+        const dateObj = new Date(d.date);
+        const day = dateObj.getDate();
+        const month = dateObj.toLocaleString('default', { month: 'short' });
+        return {
+          name: `${day} ${month}`,   // e.g. "20 Apr" — easier to compare with YouTube Studio
+          fullDate: d.date,
+          views: d.views,
+          watchTime: parseFloat((d.watchMinutes / 60).toFixed(1)), // precise hours
+          retention: d.retentionCount > 0
+            ? parseFloat((d.retention / d.retentionCount).toFixed(1))
+            : 0,
+          ctr: 0,
+          revenue: 0,
+        };
+      });
   })();
 
   const activeChartData = realChartData || chartData;
@@ -208,7 +213,7 @@ export default function Overview() {
         </div>
         <div className="chart-container">
           <ResponsiveContainer width="100%" height={400}>
-            <AreaChart data={activeChartData}>
+            <AreaChart data={activeChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorMetric" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor={metrics.find(m => m.id === activeMetric).color} stopOpacity={0.3}/>
@@ -220,22 +225,53 @@ export default function Overview() {
                 dataKey="name" 
                 axisLine={false} 
                 tickLine={false} 
-                tick={{fill: 'var(--text-dim)', fontSize: 12}} 
+                tick={{fill: 'var(--text-dim)', fontSize: 11}} 
                 dy={10}
+                interval={hasRealData ? 6 : 0}
               />
               <YAxis 
                 axisLine={false} 
                 tickLine={false} 
                 tick={{fill: 'var(--text-dim)', fontSize: 12}}
+                tickFormatter={(val) => {
+                  if (activeMetric === 'ctr' || activeMetric === 'retention') return val + '%';
+                  if (val >= 1000) return (val / 1000).toFixed(1) + 'K';
+                  return val;
+                }}
               />
               <Tooltip 
                 contentStyle={{ 
                   backgroundColor: 'var(--bg-card)', 
                   border: '1px solid var(--border)',
                   borderRadius: '12px',
-                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                  padding: '12px 16px',
                 }}
-                itemStyle={{ color: metrics.find(m => m.id === activeMetric).color }}
+                labelStyle={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '4px' }}
+                itemStyle={{ color: metrics.find(m => m.id === activeMetric).color, fontWeight: 700 }}
+                formatter={(value, name) => {
+                  const labels = {
+                    views: ['Views', ''],
+                    watchTime: ['Jam Tayang', ' hrs'],
+                    ctr: ['CTR', '%'],
+                    retention: ['Avg Retention', '%'],
+                    revenue: ['Revenue', '$'],
+                  };
+                  const [label, unit] = labels[name] || [name, ''];
+                  let formatted;
+                  if (name === 'watchTime') {
+                    formatted = value >= 1000 ? (value / 1000).toFixed(1) + 'K' : value.toFixed(1);
+                  } else if (name === 'views') {
+                    formatted = value >= 1000 ? (value / 1000).toFixed(1) + 'K' : Math.round(value);
+                  } else {
+                    formatted = value;
+                  }
+                  return [`${formatted}${unit}`, label];
+                }}
+                labelFormatter={(label, payload) => {
+                  if (payload?.[0]?.payload?.fullDate) return payload[0].payload.fullDate;
+                  return label;
+                }}
               />
               <Area 
                 type="monotone" 
@@ -244,6 +280,8 @@ export default function Overview() {
                 strokeWidth={3}
                 fillOpacity={1} 
                 fill="url(#colorMetric)" 
+                dot={false}
+                activeDot={{ r: 6, strokeWidth: 0 }}
               />
             </AreaChart>
           </ResponsiveContainer>
