@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { usePermissions } from '../../context/PermissionContext';
 import { 
   kpiData as rawKpiData, 
-  hallOfFame, 
   detailedAlerts, 
-  monetizationStats, 
-  channels 
 } from '../../data/mockData';
 import { chartData } from '../../data/chartData';
 import { 
@@ -18,202 +16,135 @@ import {
   XAxis, 
   YAxis, 
   CartesianGrid, 
-  Tooltip 
+  Tooltip as ChartTooltip
 } from 'recharts';
 import { 
-  TrendingUp, 
-  TrendingDown, 
-  Download, 
-  Plus, 
   RefreshCw,
-  AlertTriangle, 
-  Award, 
-  Activity, 
-  DollarSign,
-  ArrowRight,
   Clock,
   Users,
-  Eye,
-  Video,
-  CheckCircle2
+  Activity,
+  DollarSign,
+  ArrowRight,
+  Plus,
+  Play,
+  Award,
+  AlertTriangle,
+  Download
 } from 'lucide-react';
 import './Overview.css';
 
 export default function Overview() {
   const { t, locale } = useLanguage();
   const navigate = useNavigate();
-  const { allChannels, connectedAccounts, isLoading } = useAuth();
+  const { allChannels = [], connectedAccounts = [], isLoading, refreshAccount } = useAuth();
+  const { hasPermission } = usePermissions();
   const [activeMetric, setActiveMetric] = useState('views');
-
+  
   const hasRealData = allChannels.length > 0;
 
-  // --- Build real KPI data from connected channels ---
-  const realKpis = hasRealData ? (() => {
-    const totalSubs = allChannels.reduce((s, ch) => s + parseInt(ch.subscribers || 0), 0);
-    const totalViews28d = allChannels.reduce((s, ch) => s + (ch.analytics?.views28d || 0), 0);
-    const totalWatchTime = allChannels.reduce((s, ch) => s + (ch.analytics?.watchTimeHours || 0), 0);
-    const avgCTR = allChannels.reduce((s, ch) => s + parseFloat(ch.analytics?.ctr || 0), 0) / allChannels.length;
-    const avgRetention = allChannels.reduce((s, ch) => s + parseFloat(ch.analytics?.avgRetention || 0), 0) / allChannels.length;
-
-    const fmt = (n) => n >= 1000000 ? (n/1000000).toFixed(1)+'M' : n >= 1000 ? (n/1000).toFixed(1)+'K' : n.toString();
-
-    return [
-      { label: locale === 'id' ? 'Total Subscriber' : 'Total Subscribers', value: fmt(totalSubs), trend: '', isPositive: true, unit: '' },
-      { label: locale === 'id' ? 'Penayangan (28 Hari)' : 'Views (28 Days)', value: fmt(totalViews28d), trend: '', isPositive: true, unit: '' },
-      { label: locale === 'id' ? 'Waktu Tonton' : 'Watch Time', value: fmt(totalWatchTime), trend: '', isPositive: true, unit: 'hrs' },
-      { label: 'Avg CTR', value: avgCTR.toFixed(2) + '%', trend: '', isPositive: avgCTR > 4, unit: '' },
-      { label: locale === 'id' ? 'Avg Retensi' : 'Avg Retention', value: avgRetention.toFixed(1) + '%', trend: '', isPositive: avgRetention > 40, unit: '' },
-      { label: locale === 'id' ? 'Total Video' : 'Total Videos', value: allChannels.reduce((s, ch) => s + parseInt(ch.videoCount || 0), 0).toString(), trend: '', isPositive: true, unit: '' },
-    ];
-  })() : null;
-
-  // Human readable mapping for KPI labels
-  const kpiLabels = {
-    totalRealTimeViews: locale === 'id' ? 'Penayangan Real-Time' : 'Real-Time Views',
-    totalWatchTime: locale === 'id' ? 'Waktu Tonton' : 'Watch Time',
-    avgCTR: locale === 'id' ? 'Rata-rata CTR' : 'Average CTR',
-    avgRetention: locale === 'id' ? 'Rata-rata Retensi' : 'Average Retention',
-    avgAVD: locale === 'id' ? 'Rata-rata AVD' : 'Average AVD',
-    totalRevenue: locale === 'id' ? 'Estimasi Pendapatan' : 'Estimated Revenue'
+  const fmt = (n) => {
+    const num = parseFloat(n) || 0;
+    if (num >= 1000000) {
+      return locale === 'id' 
+        ? (num / 1000000).toFixed(1).replace('.', ',') + ' jt' 
+        : (num / 1000000).toFixed(1) + 'M';
+    }
+    if (num >= 1000) {
+      return locale === 'id' 
+        ? (num / 1000).toFixed(1).replace('.', ',') + ' rb' 
+        : (num / 1000).toFixed(1) + 'K';
+    }
+    return locale === 'id' ? num.toLocaleString('id-ID') : num.toLocaleString('en-US');
   };
 
-  const kpiData = realKpis || rawKpiData.map(stat => ({
-    ...stat,
-    label: kpiLabels[stat.labelKey] || stat.label
-  }));
+  function formatCurrency(val) {
+    const num = parseFloat(val) || 0;
+    if (num === 0) return '$0';
+    if (num > 10000) return 'Rp ' + Math.round(num).toLocaleString('id-ID');
+    return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 2 });
+  }
 
-  // Summary Data Prep
-  const criticalCount = detailedAlerts.filter(a => a.severity === 'critical').length;
-  const warningCount = detailedAlerts.filter(a => a.severity === 'warning').length;
-  const topIssue = detailedAlerts[0];
+  const handleManualSync = () => {
+    connectedAccounts.forEach(acc => refreshAccount(acc.email));
+  };
 
-  const rtChampion = hallOfFame.find(h => h.category === 'Real-Time Champion');
-  const revChampion = hallOfFame.find(h => h.category === 'Revenue Champion');
-  const ctrChampion = hallOfFame.find(h => h.category === 'CTR Champion');
+  const kpiData = hasRealData ? [
+    { id: 'views', label: t('totalRealTimeViews'), value: fmt(allChannels.reduce((s, ch) => s + (ch.analytics?.rtViews || 0), 0)), period: t('last48Hours'), icon: <RefreshCw size={16} /> },
+    { id: 'views', label: locale === 'id' ? 'Total Penayangan' : 'Total Views', value: fmt(allChannels.reduce((s, ch) => s + (ch.analytics?.views28d || 0), 0)), period: t('last28Days'), icon: <Play size={16} /> },
+    { id: 'watchTime', label: t('totalWatchTime'), value: fmt(allChannels.reduce((s, ch) => s + (ch.analytics?.watchTimeHours || 0), 0)) + (locale === 'id' ? ' jam' : ' hrs'), period: t('last28Days'), icon: <Clock size={16} /> },
+    { id: 'views', label: t('avgRetention'), value: (allChannels.reduce((s, ch) => s + parseFloat(ch.analytics?.avgRetention || 0), 0) / (allChannels.length || 1)).toFixed(1).replace('.', ',') + '%', period: t('last28Days'), icon: <Activity size={16} /> },
+    { id: 'watchTime', label: t('avgAVD'), value: allChannels[0]?.analytics?.avgAVD || '0:00', period: t('last28Days'), icon: <Users size={16} /> },
+    ...(hasPermission('monetization') ? [{ id: 'revenue', label: t('totalEstimatedRevenue'), value: formatCurrency(allChannels.reduce((s, ch) => s + (ch.analytics?.revenue || 0), 0)), period: t('last28Days'), icon: <DollarSign size={16} /> }] : [])
+  ] : rawKpiData.filter(stat => hasPermission('monetization') || stat.id !== 'revenue');
 
-  // Use real channel count if available, otherwise mock
-  const activeChannels = hasRealData ? allChannels.length : channels.filter(c => c.status === 'Active').length;
-  const growingChannels = hasRealData ? allChannels.filter(ch => ch.analytics?.views28d > 0).length : 4;
-  const reviewChannels = criticalCount;
-  const lastSyncTime = connectedAccounts[0]?.lastSync || null;
-
-  // Build real chart data from analytics chartRows
-  const realChartData = (() => {
-    if (!hasRealData) return null;
+  const activeChartData = hasRealData ? (() => {
     const dateMap = {};
     allChannels.forEach(ch => {
       (ch.analytics?.chartRows || []).forEach(row => {
-        // row: [date, views, estimatedMinutesWatched, averageViewDuration, averageViewPercentage]
         const date = row[0];
-        if (!dateMap[date]) {
-          dateMap[date] = { date, views: 0, watchMinutes: 0, retention: 0, retentionCount: 0 };
-        }
-        dateMap[date].views += Math.round(row[1] || 0);
-        dateMap[date].watchMinutes += (row[2] || 0); // accumulate raw minutes - convert at end
-        dateMap[date].retention += (row[4] || 0);
-        dateMap[date].retentionCount += 1;
+        if (!dateMap[date]) dateMap[date] = { 
+          name: new Date(date).toLocaleDateString(locale === 'id' ? 'id-ID' : 'en-US', { day: 'numeric', month: 'short' }), 
+          views: 0, watchTime: 0, revenue: 0 
+        };
+        dateMap[date].views += row[1] || 0;
+        dateMap[date].watchTime += (row[2] || 0) / 60;
+        dateMap[date].revenue += row[5] || 0;
       });
     });
-
-    return Object.values(dateMap)
-      .sort((a, b) => new Date(a.date) - new Date(b.date))
-      .map(d => {
-        const dateObj = new Date(d.date);
-        const day = dateObj.getDate();
-        const month = dateObj.toLocaleString('default', { month: 'short' });
-        return {
-          name: `${day} ${month}`,   // e.g. "20 Apr" — easier to compare with YouTube Studio
-          fullDate: d.date,
-          views: d.views,
-          watchTime: parseFloat((d.watchMinutes / 60).toFixed(1)), // precise hours
-          retention: d.retentionCount > 0
-            ? parseFloat((d.retention / d.retentionCount).toFixed(1))
-            : 0,
-          ctr: 0,
-          revenue: 0,
-        };
-      });
-  })();
-
-  const activeChartData = realChartData || chartData;
+    return Object.values(dateMap).sort((a,b) => new Date(a.name) - new Date(b.name));
+  })() : chartData;
 
   const metrics = [
-    { id: 'views', label: locale === 'id' ? 'Penayangan' : 'Views', color: '#6366f1' },
-    { id: 'watchTime', label: locale === 'id' ? 'Waktu Tonton' : 'Watch Time', color: '#10b981' },
-    { id: 'ctr', label: 'CTR', color: '#f59e0b' },
-    { id: 'retention', label: locale === 'id' ? 'Retensi' : 'Retention', color: '#8b5cf6' },
-    { id: 'revenue', label: locale === 'id' ? 'Pendapatan' : 'Revenue', color: '#ef4444' },
+    { id: 'views', label: t('penayangan'), color: '#6366f1' },
+    { id: 'watchTime', label: t('waktuTonton'), color: '#10b981' },
+    ...(hasPermission('monetization') ? [{ id: 'revenue', label: t('pendapatan'), color: '#ef4444' }] : [])
   ];
 
   return (
     <div className="overview-container">
-      <header className="page-header">
-        <div className="header-left">
-          <h2 className="h2">{locale === 'id' ? 'Ikhtisar Operasi YouTube' : 'YouTube Operations Overview'}</h2>
-          <p className="p-muted">{locale === 'id' ? 'Pantau kesehatan, performa, dan pendapatan semua saluran YouTube dalam sekejap.' : 'Monitor the overall health, performance, and revenue of all YouTube channels at a glance.'}</p>
-          <div className="sync-info">
-            {isLoading ? <RefreshCw size={12} className="spinning" /> : <Clock size={12} />}
-            <span>
-              {isLoading
-                ? (locale === 'id' ? 'Mengambil data...' : 'Fetching data...')
-                : lastSyncTime
-                  ? `${locale === 'id' ? 'Sinkronisasi terakhir' : 'Last sync'}: ${lastSyncTime}`
-                  : (locale === 'id' ? 'Sinkronisasi terakhir: 2 menit yang lalu' : 'Last sync: 2 minutes ago')
-              }
-            </span>
-            {hasRealData && (
-              <span className="live-badge"><CheckCircle2 size={10} /> Live Data</span>
-            )}
-          </div>
+      <header className="page-header-v4">
+        <div className="header-v4-left">
+          <h2 className="h2">{t('ytOperations')}</h2>
+          <p className="p-muted">{t('ytOpsDesc')}</p>
         </div>
-        <div className="page-actions">
-          <button className="btn btn-secondary"><Download size={16} /> {t('exportData')}</button>
-          <button className="btn btn-primary" onClick={() => navigate('/youtube/account')}><Plus size={16} /> {t('addChannel')}</button>
+        <div className="header-v4-right">
+          <button className="btn btn-secondary btn-sm" title={t('exportData')}><Download size={16} /> Export</button>
+          <button className="btn btn-primary btn-sm" onClick={() => navigate('/youtube/channels')}><Plus size={16} /> {t('addChannel')}</button>
         </div>
       </header>
 
-      {/* KPI Row */}
-      <section className="kpi-summary-row">
+      <section className="kpi-grid-v4 mt-32">
         {kpiData.map((stat, i) => (
           <motion.div 
-            key={stat.label}
-            className="kpi-card-compact"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
+            key={i} 
+            className={`kpi-card-v4 ${activeMetric === stat.id ? 'active' : ''}`}
+            onClick={() => stat.id && setActiveMetric(stat.id)}
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
           >
-            <span className="kpi-label">{stat.label}</span>
-            <div className="kpi-main">
-              <span className="kpi-value">{stat.value}</span>
-              <span className={`kpi-trend ${stat.isPositive ? 'positive' : 'negative'}`}>
-                {stat.isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                {stat.trend}
-              </span>
+            <div className="kpi-v4-header">
+              <span className="kpi-v4-label">{stat.label}</span>
+              <div className="kpi-v4-icon">{stat.icon}</div>
             </div>
-            {stat.unit && <span className="kpi-unit">{stat.unit}</span>}
+            <div className="kpi-v4-body">
+              <div className="kpi-v4-value">{stat.value}</div>
+              <div className="kpi-v4-period">{stat.period}</div>
+            </div>
           </motion.div>
         ))}
       </section>
 
-      {/* Main Chart Section */}
-      <section className="main-chart-section card">
-        <div className="chart-header">
+      <section className="chart-card-v4 mt-32">
+        <div className="chart-v4-header">
           <h3 className="h3">{locale === 'id' ? 'Tren Performa Saluran' : 'Channel Performance Trend'}</h3>
-          <div className="metric-tabs">
+          <div className="chart-tabs-v4">
             {metrics.map(m => (
-              <button 
-                key={m.id}
-                className={`metric-tab ${activeMetric === m.id ? 'active' : ''}`}
-                onClick={() => setActiveMetric(m.id)}
-              >
-                {m.label}
-              </button>
+              <button key={m.id} className={`chart-tab-v4 ${activeMetric === m.id ? 'active' : ''}`} onClick={() => setActiveMetric(m.id)}>{m.label}</button>
             ))}
           </div>
         </div>
-        <div className="chart-container">
-          <ResponsiveContainer width="100%" height={400}>
-            <AreaChart data={activeChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+        <div className="chart-v4-container">
+          <ResponsiveContainer width="100%" height={320}>
+            <AreaChart data={activeChartData}>
               <defs>
                 <linearGradient id="colorMetric" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor={metrics.find(m => m.id === activeMetric).color} stopOpacity={0.3}/>
@@ -221,201 +152,80 @@ export default function Overview() {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-              <XAxis 
-                dataKey="name" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{fill: 'var(--text-dim)', fontSize: 11}} 
-                dy={10}
-                interval={hasRealData ? 6 : 0}
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'var(--text-dim)', fontSize: 11}} dy={10} />
+              <YAxis axisLine={false} tickLine={false} tick={{fill: 'var(--text-dim)', fontSize: 12} } />
+              <ChartTooltip 
+                contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px' }}
+                formatter={(val) => [ activeMetric === 'revenue' ? formatCurrency(val) : fmt(val), metrics.find(m => m.id === activeMetric).label ]}
               />
-              <YAxis 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{fill: 'var(--text-dim)', fontSize: 12}}
-                tickFormatter={(val) => {
-                  if (activeMetric === 'ctr' || activeMetric === 'retention') return val + '%';
-                  if (val >= 1000) return (val / 1000).toFixed(1) + 'K';
-                  return val;
-                }}
-              />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'var(--bg-card)', 
-                  border: '1px solid var(--border)',
-                  borderRadius: '12px',
-                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                  padding: '12px 16px',
-                }}
-                labelStyle={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '4px' }}
-                itemStyle={{ color: metrics.find(m => m.id === activeMetric).color, fontWeight: 700 }}
-                formatter={(value, name) => {
-                  const labels = {
-                    views: ['Views', ''],
-                    watchTime: ['Jam Tayang', ' hrs'],
-                    ctr: ['CTR', '%'],
-                    retention: ['Avg Retention', '%'],
-                    revenue: ['Revenue', '$'],
-                  };
-                  const [label, unit] = labels[name] || [name, ''];
-                  let formatted;
-                  if (name === 'watchTime') {
-                    formatted = value >= 1000 ? (value / 1000).toFixed(1) + 'K' : value.toFixed(1);
-                  } else if (name === 'views') {
-                    formatted = value >= 1000 ? (value / 1000).toFixed(1) + 'K' : Math.round(value);
-                  } else {
-                    formatted = value;
-                  }
-                  return [`${formatted}${unit}`, label];
-                }}
-                labelFormatter={(label, payload) => {
-                  if (payload?.[0]?.payload?.fullDate) return payload[0].payload.fullDate;
-                  return label;
-                }}
-              />
-              <Area 
-                type="monotone" 
-                dataKey={activeMetric} 
-                stroke={metrics.find(m => m.id === activeMetric).color} 
-                strokeWidth={3}
-                fillOpacity={1} 
-                fill="url(#colorMetric)" 
-                dot={false}
-                activeDot={{ r: 6, strokeWidth: 0 }}
-              />
+              <Area type="monotone" dataKey={activeMetric} stroke={metrics.find(m => m.id === activeMetric).color} fillOpacity={1} fill="url(#colorMetric)" strokeWidth={3} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
       </section>
 
-      {/* Summary Navigation Cards */}
-      <div className="summary-nav-grid">
-        {/* Needs Attention Card */}
-        <motion.div 
-          className="nav-summary-card card"
-          whileHover={{ y: -5 }}
-          onClick={() => navigate('/youtube/needs-attention')}
-        >
-          <div className="card-top">
-            <div className="icon-box warning">
-              <AlertTriangle size={20} />
+      <div className="summary-grid-v4 mt-32">
+        <motion.div className="nav-card-v4" onClick={() => navigate('/youtube/channels')} whileHover={{ y: -5 }}>
+          <div className="nav-card-v4-header">
+            <div className="nav-icon primary"><Users size={20} /></div>
+            <h4 className="h4">{t('allChannels')}</h4>
+          </div>
+          <div className="nav-card-v4-body">
+            {hasRealData ? (
+              <div className="ch-stack-v4">
+                {allChannels.slice(0, 2).map(ch => (
+                  <div key={ch.id} className="ch-row-v4">
+                    <img src={ch.thumbnail} alt="" className="ch-img-v4" />
+                    <div className="ch-info-v4">
+                      <div className="ch-name-v4">{ch.title}</div>
+                      <div className="ch-subs-v4">{fmt(ch.subscribers)} subs</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : <div className="no-data-v4">No channels connected.</div>}
+          </div>
+          <button className="btn btn-ghost btn-full">{t('viewAllChannels')} <ArrowRight size={16} /></button>
+        </motion.div>
+
+        {hasPermission('monetization') && (
+          <motion.div className="nav-card-v4" onClick={() => navigate('/youtube/monetization')} whileHover={{ y: -5 }}>
+            <div className="nav-card-v4-header">
+              <div className="nav-icon success"><DollarSign size={20} /></div>
+              <h4 className="h4">{t('monetization')}</h4>
             </div>
+            <div className="nav-card-v4-body">
+              <div className="v-big-v4 success">{formatCurrency(allChannels.reduce((s, ch) => s + (ch.analytics?.revenue || 0), 0))}</div>
+              <div className="v-sub-v4">Total Revenue (28d)</div>
+            </div>
+            <button className="btn btn-ghost btn-full">{t('openMonetization')} <ArrowRight size={16} /></button>
+          </motion.div>
+        )}
+
+        <motion.div className="nav-card-v4" onClick={() => navigate('/youtube/needs-attention')} whileHover={{ y: -5 }}>
+          <div className="nav-card-v4-header">
+            <div className="nav-icon danger"><AlertTriangle size={20} /></div>
             <h4 className="h4">{locale === 'id' ? 'Perlu Perhatian' : 'Needs Attention'}</h4>
           </div>
-          <div className="card-content">
-            <div className="mini-stats-row">
-              <div className="mini-stat">
-                <span className="val danger">{criticalCount}</span>
-                <span className="lab">{locale === 'id' ? 'Kritis' : 'Critical'}</span>
-              </div>
-              <div className="mini-stat">
-                <span className="val warning">{warningCount}</span>
-                <span className="lab">{locale === 'id' ? 'Peringatan' : 'Warning'}</span>
-              </div>
-            </div>
-            <div className="highlight-box">
-              <span className="box-label">{locale === 'id' ? 'Isu Teratas' : 'Top Issue'}</span>
-              <p className="box-text"><strong>{topIssue.channel}</strong> - {topIssue.title} <span className="negative">{topIssue.impact}</span></p>
-            </div>
+          <div className="nav-card-v4-body">
+            <div className="v-big-v4 danger">{detailedAlerts.filter(a=>a.severity==='critical').length}</div>
+            <div className="v-sub-v4">Critical Issues</div>
           </div>
-          <button className="btn btn-ghost full-width">
-            {locale === 'id' ? 'Buka Perlu Perhatian' : 'Open Needs Attention'} <ArrowRight size={16} />
-          </button>
+          <button className="btn btn-ghost btn-full">{locale === 'id' ? 'Lihat Tugas' : 'View Tasks'} <ArrowRight size={16} /></button>
         </motion.div>
 
-        {/* Hall of Fame Card */}
-        <motion.div 
-          className="nav-summary-card card"
-          whileHover={{ y: -5 }}
-          onClick={() => navigate('/youtube/hall-of-fame')}
-        >
-          <div className="card-top">
-            <div className="icon-box gold">
-              <Award size={20} />
-            </div>
+        <motion.div className="nav-card-v4" onClick={() => navigate('/youtube/hall-of-fame')} whileHover={{ y: -5 }}>
+          <div className="nav-card-v4-header">
+            <div className="nav-icon warning"><Award size={20} /></div>
             <h4 className="h4">Hall of Fame</h4>
           </div>
-          <div className="card-content">
-            <div className="champ-list-mini">
-              <div className="champ-mini-item">
-                <span className="champ-cat">Real-Time</span>
-                <span className="champ-name">{rtChampion?.channel}</span>
-              </div>
-              <div className="champ-mini-item">
-                <span className="champ-cat">{locale === 'id' ? 'Pendapatan' : 'Revenue'}</span>
-                <span className="champ-name">{revChampion?.channel}</span>
-              </div>
-              <div className="champ-mini-item">
-                <span className="champ-cat">CTR</span>
-                <span className="champ-name">{ctrChampion?.channel}</span>
-              </div>
+          <div className="nav-card-v4-body">
+            <div className="hof-v4-item">
+              <Award size={20} className="text-warning" />
+              <span>{allChannels.sort((a,b)=>b.subscribers-a.subscribers)[0]?.title || 'Top Channel'}</span>
             </div>
           </div>
-          <button className="btn btn-ghost full-width">
-            {locale === 'id' ? 'Buka Hall of Fame' : 'Open Hall of Fame'} <ArrowRight size={16} />
-          </button>
-        </motion.div>
-
-        {/* Channel Health Card */}
-        <motion.div 
-          className="nav-summary-card card"
-          whileHover={{ y: -5 }}
-          onClick={() => navigate('/youtube/channels')}
-        >
-          <div className="card-top">
-            <div className="icon-box primary">
-              <Activity size={20} />
-            </div>
-            <h4 className="h4">{locale === 'id' ? 'Kesehatan Saluran' : 'Channel Health'}</h4>
-          </div>
-          <div className="card-content">
-            <div className="mini-stats-row">
-              <div className="mini-stat">
-                <span className="val success">{activeChannels}</span>
-                <span className="lab">{locale === 'id' ? 'Aktif' : 'Active'}</span>
-              </div>
-              <div className="mini-stat">
-                <span className="val info">{growingChannels}</span>
-                <span className="lab">{locale === 'id' ? 'Tumbuh' : 'Growing'}</span>
-              </div>
-              <div className="mini-stat">
-                <span className="val danger">{reviewChannels}</span>
-                <span className="lab">{locale === 'id' ? 'Tinjauan' : 'Review'}</span>
-              </div>
-            </div>
-          </div>
-          <button className="btn btn-ghost full-width">
-            {locale === 'id' ? 'Lihat Semua Saluran' : 'View All Channels'} <ArrowRight size={16} />
-          </button>
-        </motion.div>
-
-        {/* Monetization Card */}
-        <motion.div 
-          className="nav-summary-card card"
-          whileHover={{ y: -5 }}
-          onClick={() => navigate('/youtube/monetization')}
-        >
-          <div className="card-top">
-            <div className="icon-box success">
-              <DollarSign size={20} />
-            </div>
-            <h4 className="h4">{locale === 'id' ? 'Monetisasi' : 'Monetization'}</h4>
-          </div>
-          <div className="card-content">
-            <div className="mon-details-mini">
-              <div className="mon-main-stat">
-                <span className="mon-val">{monetizationStats.totalRevenue}</span>
-                <span className="mon-lab">{locale === 'id' ? 'Estimasi Pendapatan' : 'Estimated Revenue'}</span>
-              </div>
-              <div className="mini-grid-2">
-                <div className="m-item"><span>RPM</span><strong>{monetizationStats.rpm}</strong></div>
-                <div className="m-item"><span>CPM</span><strong>{monetizationStats.cpm}</strong></div>
-              </div>
-            </div>
-          </div>
-          <button className="btn btn-ghost full-width">
-            {locale === 'id' ? 'Buka Monetisasi' : 'Open Monetization'} <ArrowRight size={16} />
-          </button>
+          <button className="btn btn-ghost btn-full">{locale === 'id' ? 'Lihat Prestasi' : 'View Achievements'} <ArrowRight size={16} /></button>
         </motion.div>
       </div>
     </div>

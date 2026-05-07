@@ -111,16 +111,37 @@
 .cm-stat-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 14px 18px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  border-left: 3px solid var(--accent);
-  transition: transform 0.15s;
+  border-left: 4px solid var(--accent);
+  transition: var(--transition);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
 }
 
-.cm-stat-card:hover { transform: translateY(-2px); }
+.cm-stat-card:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.cm-stat-card.active {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent);
+  box-shadow: 0 0 15px var(--accent-glow);
+}
+
+.stat-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+}
 
 .cm-stat-value {
   font-size: 1.5rem;
@@ -153,10 +174,22 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 60px 0;
+  justify-content: center;
+  padding: 80px 20px;
+  text-align: center;
   color: var(--text-dim);
-  font-size: 0.9rem;
+}
+
+.empty-icon {
+  color: var(--primary);
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.cm-empty p {
+  color: var(--text-main);
+  font-weight: 600;
+  margin-bottom: 4px;
 }
 
 /* ── Comment Card ───────────────────────────── */

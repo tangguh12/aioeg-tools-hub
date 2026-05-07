@@ -1,325 +1,343 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '../../context/LanguageContext';
-import { mockComments } from '../../data/mockData';
-import {
-  Search, ThumbsUp, Heart, MessageSquare,
-  ExternalLink, CheckCheck, ChevronDown, Sparkles, Send, X
+import { useNotifications } from '../../context/NotificationContext';
+import { useAuth } from '../../context/AuthContext';
+import { 
+  Search, 
+  ChevronDown, 
+  X,
+  MessageSquare, 
+  ThumbsUp, 
+  Heart, 
+  Reply, 
+  ExternalLink,
+  CheckCircle2,
+  AlertCircle,
+  MoreVertical,
+  Clock,
+  Sparkles,
+  Send,
+  CornerDownRight,
+  History as HistoryIcon,
+  Layout,
+  RefreshCw
 } from 'lucide-react';
 import './Comments.css';
 
-const STATUS_CONFIG = {
-  'new':         { label: 'New',          className: 'status-new' },
-  'needs-reply': { label: 'Needs Reply',  className: 'status-needs-reply' },
-  'replied':     { label: 'Replied',      className: 'status-replied' },
-  'loved':       { label: 'Loved',        className: 'status-loved' },
-  'important':   { label: 'Important',    className: 'status-important' },
-};
-
-const CHANNEL_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'];
-function getChannelColor(name) {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
-  return CHANNEL_COLORS[Math.abs(h) % CHANNEL_COLORS.length];
-}
-
-const ALL_CHANNELS = [...new Set(mockComments.map(c => c.channel))];
-
 export default function Comments() {
-  const { locale } = useLanguage();
-  const [comments, setComments] = useState(mockComments);
-  const [search, setSearch] = useState('');
+  const { t } = useLanguage();
+  const { resolveComment, resolvedCommentIds } = useNotifications();
+  const { allComments: apiComments, isLoading: authLoading, refreshAccount, connectedAccounts } = useAuth();
+  
   const [filterChannel, setFilterChannel] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [sortOrder, setSortOrder] = useState('newest');
-  const [activeReply, setActiveReply] = useState(null);
+  const [sortBy, setSortBy] = useState('newest');
+  const [search, setSearch] = useState('');
+  const [replyingTo, setReplyingTo] = useState(null);
   const [replyText, setReplyText] = useState('');
-  const [expandedSuggestion, setExpandedSuggestion] = useState(null);
+  const [expandedSugg, setExpandedSugg] = useState({});
 
-  const toggleLike = (id) =>
-    setComments(cs => cs.map(c => c.id === id ? { ...c, liked: !c.liked, likes: c.liked ? c.likes - 1 : c.likes + 1 } : c));
+  // Mock data as fallback
+  const mockComments = [
+    {
+      id: 'mock-1',
+      author: 'DevBro',
+      time: t('hoursAgo').replace('{n}', '5'),
+      content: 'Do you have a vegetarian version of the chicken bowl? Would love that.',
+      channel: 'Cooking Daily',
+      video: 'Top 10 High-Protein Meals Under 30 Minutes',
+      likes: 34,
+      status: 'needs-reply',
+      avatar: 'DB',
+      suggestions: ['Yes, we recommend using chickpeas or tofu as a substitute!', 'Absolutely! You can check our vegetarian playlist for more.']
+    },
+    {
+      id: 'mock-2',
+      author: 'Maria L.',
+      time: t('hoursAgo').replace('{n}', '3'),
+      content: 'Finally a fair comparison! Most videos just pick a side but you gave a solid breakdown.',
+      channel: 'Tech Insider',
+      video: 'iPhone 16 vs Samsung S25 Ultra — Full Comparison',
+      likes: 210,
+      status: 'important',
+      avatar: 'ML'
+    }
+  ];
 
-  const toggleHeart = (id) =>
-    setComments(cs => cs.map(c => c.id === id ? { ...c, hasHeart: !c.hasHeart, status: !c.hasHeart ? 'loved' : c.status } : c));
+  // Use API comments if available, otherwise fallback to mock
+  const combinedComments = useMemo(() => {
+    if (apiComments && apiComments.length > 0) {
+      return apiComments;
+    }
+    return mockComments;
+  }, [apiComments, t]);
 
-  const markDone = (id) =>
-    setComments(cs => cs.map(c => c.id === id ? { ...c, status: 'replied' } : c));
+  const activeComments = useMemo(() => {
+    return combinedComments.filter(c => !resolvedCommentIds.includes(c.id));
+  }, [combinedComments, resolvedCommentIds]);
+
+  const historyComments = useMemo(() => {
+    return combinedComments.filter(c => resolvedCommentIds.includes(c.id));
+  }, [combinedComments, resolvedCommentIds]);
+
+  // Updated stats and order per user request: New, Needs Reply, All, History
+  const stats = useMemo(() => {
+    const totalAll = combinedComments.length;
+    const totalNew = activeComments.filter(c => c.status === 'new' || !c.status).length;
+    const needsReplyCount = activeComments.filter(c => c.status === 'needs-reply').length;
+
+    return [
+      { id: 'new', label: t('newComments'), value: totalNew, accent: '#6366f1' },
+      { id: 'needs-reply', label: t('needsReply'), value: needsReplyCount, accent: '#f59e0b' },
+      { id: 'all', label: 'All Comments', value: totalAll, accent: '#94a3b8', icon: Layout },
+      { id: 'history', label: t('history'), value: historyComments.length, accent: '#10b981', icon: HistoryIcon },
+    ];
+  }, [activeComments, historyComments, combinedComments, t]);
+
+  const handleSync = () => {
+    if (connectedAccounts.length > 0) {
+      refreshAccount(connectedAccounts[0].email);
+    }
+  };
+
+  const handleResolve = (id) => {
+    resolveComment(id);
+  };
 
   const handleReply = (id) => {
-    setComments(cs => cs.map(c => c.id === id
-      ? { ...c, replied: true, replyText, status: 'replied' }
-      : c
-    ));
-    setActiveReply(null);
+    handleResolve(id);
+    setReplyingTo(null);
     setReplyText('');
   };
 
-  const openReply = (id, suggested = '') => {
-    setActiveReply(id);
-    setReplyText(suggested);
-    setExpandedSuggestion(null);
+  const displayComments = useMemo(() => {
+    let baseList;
+    if (filterStatus === 'all') baseList = combinedComments;
+    else if (filterStatus === 'history') baseList = historyComments;
+    else if (filterStatus === 'new') baseList = activeComments.filter(c => c.status === 'new' || !c.status);
+    else if (filterStatus === 'needs-reply') baseList = activeComments.filter(c => c.status === 'needs-reply');
+    else baseList = activeComments;
+    
+    return baseList.filter(c => {
+      const matchesSearch = c.author.toLowerCase().includes(search.toLowerCase()) || 
+                          c.content.toLowerCase().includes(search.toLowerCase());
+      const matchesChannel = filterChannel === 'all' || c.channel.toLowerCase().includes(filterChannel.toLowerCase());
+      return matchesSearch && matchesChannel;
+    });
+  }, [combinedComments, activeComments, historyComments, search, filterStatus, filterChannel]);
+
+  const getStatusClass = (status) => {
+    switch(status) {
+      case 'needs-reply': return 'status-needs-reply';
+      case 'important': return 'status-important';
+      case 'replied': return 'status-replied';
+      default: return 'status-new';
+    }
   };
 
-  // Derived stats
-  const stats = [
-    { label: locale === 'id' ? 'Komentar Baru' : 'New Comments',   value: comments.filter(c => c.status === 'new').length,          color: '#6366f1' },
-    { label: locale === 'id' ? 'Perlu Dibalas'  : 'Needs Reply',   value: comments.filter(c => c.status === 'needs-reply').length,   color: '#f59e0b' },
-    { label: locale === 'id' ? 'Dibalas Hari Ini': 'Replied Today', value: comments.filter(c => c.status === 'replied').length,       color: '#10b981' },
-    { label: locale === 'id' ? 'Penting'         : 'Important',     value: comments.filter(c => c.status === 'important').length,     color: '#ef4444' },
-  ];
+  const getStatusLabel = (status) => {
+    switch(status) {
+      case 'needs-reply': return t('needsReply');
+      case 'important': return t('important');
+      case 'replied': return t('replied');
+      default: return t('newComments');
+    }
+  };
 
-  // Filter + sort
-  const filtered = comments
-    .filter(c => {
-      const matchSearch = c.text.toLowerCase().includes(search.toLowerCase())
-        || c.author.toLowerCase().includes(search.toLowerCase())
-        || c.video.toLowerCase().includes(search.toLowerCase());
-      const matchChannel = filterChannel === 'all' || c.channel === filterChannel;
-      const matchStatus  = filterStatus  === 'all' || c.status  === filterStatus;
-      return matchSearch && matchChannel && matchStatus;
-    })
-    .sort((a, b) => sortOrder === 'newest' ? b.id - a.id : a.id - b.id);
+  const isItemResolved = (id) => resolvedCommentIds.includes(id);
 
   return (
     <div className="cm-container">
-
-      {/* Header */}
       <header className="cm-header">
-        <div>
-          <h2 className="h2">{locale === 'id' ? 'Komentar' : 'Comments'}</h2>
-          <p className="p-muted">
-            {locale === 'id'
-              ? 'Kelola komentar dari semua channel YouTube yang terhubung.'
-              : 'Manage comments across all connected YouTube channels.'}
-          </p>
+        <div className="cm-header-left">
+          <h2 className="h2">{t('commentsTitle')}</h2>
+          <p className="p-muted">{t('commentsSubtitle')}</p>
+        </div>
+        <div className="cm-header-right">
+          <button className="btn btn-secondary" onClick={handleSync} disabled={authLoading}>
+            <RefreshCw size={16} className={authLoading ? 'spinning' : ''} />
+            <span>{authLoading ? 'Syncing...' : 'Sync with YouTube'}</span>
+          </button>
         </div>
       </header>
 
-      {/* Filter Bar */}
+      {connectedAccounts.length === 0 && (
+        <div className="sync-banner">
+          <AlertCircle size={18} />
+          <span>Connect your YouTube account in Settings to sync real comments.</span>
+        </div>
+      )}
+
+      <section className="cm-stats four-cols">
+        {stats.map((stat, i) => (
+          <div 
+            key={i} 
+            className={`cm-stat-card ${filterStatus === stat.id ? 'active' : ''}`} 
+            style={{ '--accent': stat.accent }}
+            onClick={() => setFilterStatus(stat.id)}
+          >
+            {stat.icon ? <stat.icon size={20} className="stat-icon-mini" /> : <div className="cm-stat-value">{stat.value}</div>}
+            <div className="cm-stat-label">
+              {stat.id === 'all' ? `(${stat.value}) ${stat.label}` : stat.label}
+            </div>
+            {filterStatus === stat.id && <div className="stat-indicator" />}
+          </div>
+        ))}
+      </section>
+
       <div className="cm-filters">
         <div className="cm-search">
-          <Search size={15} />
-          <input
-            type="text"
-            placeholder={locale === 'id' ? 'Cari komentar, video, atau pembuat...' : 'Search comments, videos, or authors...'}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          {search && <button className="cm-clear" onClick={() => setSearch('')}><X size={13} /></button>}
+          <Search size={16} />
+          <input type="text" placeholder={t('searchPlaceholder')} value={search} onChange={e => setSearch(e.target.value)} />
+          {search && <button className="cm-clear" onClick={() => setSearch('')}><X size={14} /></button>}
         </div>
-
+        
         <div className="cm-selects">
           <div className="cm-select-wrap">
             <select value={filterChannel} onChange={e => setFilterChannel(e.target.value)}>
-              <option value="all">{locale === 'id' ? 'Semua Channel' : 'All Channels'}</option>
-              {ALL_CHANNELS.map(ch => <option key={ch} value={ch}>{ch}</option>)}
+              <option value="all">{t('allCategories')}</option>
+              {Array.from(new Set(combinedComments.map(c => c.channel))).map(ch => (
+                <option key={ch} value={ch}>{ch}</option>
+              ))}
             </select>
-            <ChevronDown size={13} className="select-arrow" />
+            <ChevronDown size={14} className="select-arrow" />
           </div>
-
           <div className="cm-select-wrap">
             <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-              <option value="all">{locale === 'id' ? 'Semua Status' : 'All Status'}</option>
-              <option value="new">New</option>
-              <option value="needs-reply">Needs Reply</option>
-              <option value="replied">Replied</option>
-              <option value="important">Important</option>
-              <option value="loved">Loved</option>
+              <option value="all">{t('allStatus')}</option>
+              <option value="new">{t('newComments')}</option>
+              <option value="needs-reply">{t('needsReply')}</option>
+              <option value="history">{t('history')}</option>
             </select>
-            <ChevronDown size={13} className="select-arrow" />
-          </div>
-
-          <div className="cm-select-wrap">
-            <select value={sortOrder} onChange={e => setSortOrder(e.target.value)}>
-              <option value="newest">{locale === 'id' ? 'Terbaru' : 'Newest First'}</option>
-              <option value="oldest">{locale === 'id' ? 'Terlama' : 'Oldest First'}</option>
-            </select>
-            <ChevronDown size={13} className="select-arrow" />
+            <ChevronDown size={14} className="select-arrow" />
           </div>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="cm-stats">
-        {stats.map((s, i) => (
-          <motion.div
-            key={s.label}
-            className="cm-stat-card"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.07 }}
-            style={{ '--accent': s.color }}
-          >
-            <span className="cm-stat-value">{s.value}</span>
-            <span className="cm-stat-label">{s.label}</span>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Results count */}
-      <p className="cm-count">
-        {filtered.length} {locale === 'id' ? 'komentar ditemukan' : 'comments'}
-      </p>
-
-      {/* Comment List */}
       <div className="cm-list">
-        <AnimatePresence>
-          {filtered.length === 0 && (
-            <div className="cm-empty">
-              <MessageSquare size={32} />
-              <p>{locale === 'id' ? 'Tidak ada komentar ditemukan.' : 'No comments found.'}</p>
-            </div>
-          )}
-
-          {filtered.map((c, i) => {
-            const statusCfg = STATUS_CONFIG[c.status] || STATUS_CONFIG['new'];
-            const chColor = getChannelColor(c.channel);
-            const isSuggExpanded = expandedSuggestion === c.id;
-            const isReplying = activeReply === c.id;
-
-            return (
-              <motion.div
-                key={c.id}
-                className="cm-card"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ delay: i * 0.05 }}
-                style={{ '--ch-color': chColor }}
-              >
-                {/* Top Row: Avatar + Author + Time + Status */}
-                <div className="cm-card-top">
-                  <div className="cm-avatar" style={{ background: chColor + '22', color: chColor }}>
-                    {c.avatar}
-                  </div>
-                  <div className="cm-author-block">
-                    <span className="cm-author-name">{c.author}</span>
-                    <span className="cm-time">{c.time}</span>
-                  </div>
-                  <span className={`cm-status-badge ${statusCfg.className}`}>
-                    {statusCfg.label}
-                  </span>
+        <p className="cm-count">{t('commentsFound').replace('{count}', displayComments.length)}</p>
+        
+        <AnimatePresence mode='popLayout'>
+          {displayComments.map((comment) => (
+            <motion.div 
+              key={comment.id} 
+              className={`cm-card ${isItemResolved(comment.id) ? 'is-resolved' : ''}`} 
+              initial={{ opacity: 0, y: 10 }} 
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, x: -20, scale: 0.95 }}
+              layout
+            >
+              <div className="cm-card-top">
+                <div className="cm-avatar" style={{ backgroundColor: `hsl(${comment.author.length * 20}, 50%, 40%)`, color: 'white' }}>
+                  {comment.avatar}
                 </div>
-
-                {/* Context Row: Channel + Video */}
-                <div className="cm-context">
-                  <span className="cm-channel-badge" style={{ color: chColor, borderColor: chColor + '40', background: chColor + '15' }}>
-                    {c.channel}
-                  </span>
-                  <span className="cm-context-sep">·</span>
-                  <span className="cm-video-label">
-                    {c.video}
-                  </span>
+                <div className="cm-author-block">
+                  <span className="cm-author-name">{comment.author}</span>
+                  <span className="cm-time">{comment.time}</span>
                 </div>
+                <span className={`cm-status-badge ${isItemResolved(comment.id) ? 'status-replied' : getStatusClass(comment.status)}`}>
+                  {isItemResolved(comment.id) ? t('resolved') : getStatusLabel(comment.status)}
+                </span>
+              </div>
 
-                {/* Comment Body */}
-                <p className="cm-text">{c.text}</p>
-
-                {/* Replied preview */}
-                {c.replied && c.replyText && (
-                  <div className="cm-reply-preview">
-                    <div className="cm-reply-bar" />
-                    <div className="cm-reply-body">
-                      <span className="cm-reply-you">You</span>
-                      <span>{c.replyText}</span>
-                    </div>
-                  </div>
+              <div className="cm-context">
+                <span className="cm-channel-badge" style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}>{comment.channel}</span>
+                {comment.video && (
+                  <>
+                    <span className="cm-context-sep">·</span>
+                    <span className="cm-video-label">{comment.video}</span>
+                  </>
                 )}
+              </div>
 
-                {/* Suggested Reply (for needs-reply) */}
-                {c.suggestedReply && c.status === 'needs-reply' && !isReplying && (
-                  <div className="cm-suggestion">
-                    <div className="cm-suggestion-header" onClick={() => setExpandedSuggestion(isSuggExpanded ? null : c.id)}>
-                      <Sparkles size={13} />
-                      <span>{locale === 'id' ? 'Saran balasan' : 'Suggested reply'}</span>
-                      <ChevronDown size={13} className={`sugg-arrow ${isSuggExpanded ? 'open' : ''}`} />
-                    </div>
-                    <AnimatePresence>
-                      {isSuggExpanded && (
-                        <motion.div
-                          className="cm-suggestion-body"
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <p>"{c.suggestedReply}"</p>
-                          <div className="cm-suggestion-actions">
-                            <button className="btn btn-primary btn-small" onClick={() => openReply(c.id, c.suggestedReply)}>
-                              Use Reply
-                            </button>
-                            <button className="btn btn-secondary btn-small" onClick={() => openReply(c.id, '')}>
-                              Edit
-                            </button>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+              <p className="cm-text" dangerouslySetInnerHTML={{ __html: comment.content }}></p>
+
+              {!isItemResolved(comment.id) && comment.suggestions && (
+                <div className="cm-suggestion">
+                  <div className="cm-suggestion-header" onClick={() => setExpandedSugg(prev => ({ ...prev, [comment.id]: !prev[comment.id] }))}>
+                    <Sparkles size={14} />
+                    <span>{t('replySugg')}</span>
+                    <ChevronDown size={14} className={`sugg-arrow ${expandedSugg[comment.id] ? 'open' : ''}`} />
                   </div>
-                )}
-
-                {/* Reply Input */}
-                <AnimatePresence>
-                  {isReplying && (
-                    <motion.div
-                      className="cm-reply-input"
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <textarea
-                        placeholder={locale === 'id' ? 'Tulis balasan...' : 'Write a reply...'}
-                        value={replyText}
-                        onChange={e => setReplyText(e.target.value)}
-                        rows={3}
-                        autoFocus
-                      />
-                      <div className="cm-reply-input-actions">
-                        <button className="btn btn-secondary btn-small" onClick={() => { setActiveReply(null); setReplyText(''); }}>
-                          Cancel
-                        </button>
-                        <button className="btn btn-primary btn-small" onClick={() => handleReply(c.id)} disabled={!replyText.trim()}>
-                          <Send size={13} /> Send
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Action Row */}
-                <div className="cm-actions">
-                  <button className={`cm-action ${c.liked ? 'active' : ''}`} onClick={() => toggleLike(c.id)}>
-                    <ThumbsUp size={14} fill={c.liked ? 'currentColor' : 'none'} />
-                    <span>{c.likes}</span>
-                  </button>
-
-                  <button className={`cm-action ${c.hasHeart ? 'active-heart' : ''}`} onClick={() => toggleHeart(c.id)}>
-                    <Heart size={14} fill={c.hasHeart ? 'currentColor' : 'none'} />
-                    <span>{locale === 'id' ? 'Sukai' : 'Love'}</span>
-                  </button>
-
-                  <button className={`cm-action ${isReplying ? 'active' : ''}`} onClick={() => openReply(c.id, '')}>
-                    <MessageSquare size={14} />
-                    <span>{locale === 'id' ? 'Balas' : 'Reply'}</span>
-                  </button>
-
-                  <div className="cm-actions-right">
-                    <a href={c.videoUrl} target="_blank" rel="noreferrer" className="cm-action">
-                      <ExternalLink size={14} />
-                      <span>{locale === 'id' ? 'Buka Video' : 'Open Video'}</span>
-                    </a>
-                    {c.status !== 'replied' && (
-                      <button className="cm-action cm-done" onClick={() => markDone(c.id)}>
-                        <CheckCheck size={14} />
-                        <span>{locale === 'id' ? 'Selesai' : 'Mark Done'}</span>
-                      </button>
+                  <AnimatePresence>
+                    {expandedSugg[comment.id] && (
+                      <motion.div className="cm-suggestion-body" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
+                        <div className="cm-suggestion-actions">
+                          {comment.suggestions.map((s, idx) => (
+                            <button key={idx} className="btn btn-secondary btn-small" onClick={() => { setReplyingTo(comment.id); setReplyText(s); }}>
+                              {s}
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
                     )}
-                  </div>
+                  </AnimatePresence>
                 </div>
-              </motion.div>
-            );
-          })}
+              )}
+
+              <AnimatePresence>
+                {replyingTo === comment.id && (
+                  <motion.div className="cm-reply-input" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
+                    <textarea placeholder={t('placeholderReply')} value={replyText} onChange={e => setReplyText(e.target.value)} autoFocus />
+                    <div className="cm-reply-input-actions">
+                      <button className="btn btn-secondary btn-small" onClick={() => setReplyingTo(null)}>{t('cancel')}</button>
+                      <button className="btn btn-primary btn-small" onClick={() => handleReply(comment.id)}>
+                        <Send size={14} />
+                        <span>{t('sendReply')}</span>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className="cm-actions">
+                <button className="cm-action">
+                  <ThumbsUp size={16} />
+                  <span>{comment.likes} {t('like')}</span>
+                </button>
+                {!isItemResolved(comment.id) && (
+                  <button className={`cm-action ${replyingTo === comment.id ? 'active' : ''}`} onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}>
+                    <Reply size={16} />
+                    <span>{t('replyAction')}</span>
+                  </button>
+                )}
+                
+                <div className="cm-actions-right">
+                  {comment.video && <button className="cm-action">{t('openVideo')}</button>}
+                  {!isItemResolved(comment.id) && (
+                    <button className="cm-action cm-done" onClick={() => handleResolve(comment.id)}>
+                      <CheckCircle2 size={16} />
+                      <span>{t('resolved')}</span>
+                    </button>
+                  )}
+                  {isItemResolved(comment.id) && (
+                    <span className="history-done-tag">
+                      <CheckCircle2 size={14} />
+                      {t('resolved')}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          ))}
+          {displayComments.length === 0 && (
+            <motion.div className="cm-empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              {filterStatus === 'history' ? (
+                <>
+                  <HistoryIcon size={48} className="empty-icon" style={{ opacity: 0.2 }} />
+                  <p>No history yet</p>
+                  <span>Your replied and resolved comments will appear here.</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={48} className="empty-icon" />
+                  <p>{t('noNewNotifications')}</p>
+                  <span>{t('caughtUp')}</span>
+                </>
+              )}
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
     </div>

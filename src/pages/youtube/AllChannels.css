@@ -15,9 +15,17 @@
 .ac-header-main {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 24px;
-  margin-bottom: 8px;
+  margin-bottom: 16px;
+}
+
+.ac-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  align-items: flex-start;
 }
 
 .header-actions {

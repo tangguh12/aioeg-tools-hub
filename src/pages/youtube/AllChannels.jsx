@@ -3,12 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { usePermissions } from '../../context/PermissionContext';
 import { channels as mockChannels } from '../../data/mockData';
 import {
   Search, ChevronDown, Plus, X, Check,
   ExternalLink, Settings, Trash2, TrendingUp, TrendingDown, Minus,
   Users, Eye, Clock, DollarSign, Tag, ChevronRight, Calendar, AlertCircle,
-  BarChart2, Info, Folder, Edit3, Save, Layers, List, Youtube
+  BarChart2, Info, Folder, Edit3, Save, Layers, List, Globe
 } from 'lucide-react';
 import './AllChannels.css';
 
@@ -16,7 +17,8 @@ import './AllChannels.css';
 const CHANNEL_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'];
 const getColor = (name = '') => {
   let h = 0;
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  const str = String(name || 'CH');
+  for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
   return CHANNEL_COLORS[Math.abs(h) % CHANNEL_COLORS.length];
 };
 
@@ -27,23 +29,19 @@ const fmt = (n) => {
   return num.toString();
 };
 
-const STATUS_STYLE = {
-  Active:    { bg: 'rgba(16,185,129,0.1)',  color: '#34d399' },
-  Testing:   { bg: 'rgba(245,158,11,0.1)',  color: '#fbbf24' },
-  Inactive:  { bg: 'rgba(100,116,139,0.12)', color: '#94a3b8' },
-  Declining: { bg: 'rgba(239,68,68,0.1)',   color: '#f87171' },
-};
-
-const TREND_STYLE = {
-  growing:   { color: '#34d399', icon: TrendingUp,   label: 'Growing',   bg: 'rgba(16,185,129,0.1)' },
-  declining: { color: '#f87171', icon: TrendingDown, label: 'Declining', bg: 'rgba(239,68,68,0.1)' },
-  stable:    { color: '#94a3b8', icon: Minus,        label: 'Stable',    bg: 'rgba(255,255,255,0.05)' },
-  'needs-review': { color: '#fbbf24', icon: AlertCircle, label: 'Needs Review', bg: 'rgba(245,158,11,0.1)' }
+const getTrendStyle = (key, t) => {
+  const styles = {
+    growing:   { color: '#34d399', icon: TrendingUp,   label: t('growing'),   bg: 'rgba(16,185,129,0.1)' },
+    declining: { color: '#f87171', icon: TrendingDown, label: t('declining'), bg: 'rgba(239,68,68,0.1)' },
+    stable:    { color: '#94a3b8', icon: Minus,        label: t('stable'),    bg: 'rgba(255,255,255,0.05)' },
+    'needs-review': { color: '#fbbf24', icon: AlertCircle, label: t('needsReview'), bg: 'rgba(245,158,11,0.1)' }
+  };
+  return styles[key] || styles.stable;
 };
 
 // ── Classification Management Drawer ─────────────────────────────────
-function ClassificationDrawer({ data: initialData, onClose, onSave }) {
-  const [data, setData] = useState(JSON.parse(JSON.stringify(initialData)));
+function ClassificationDrawer({ data: initialData, onClose, onSave, t }) {
+  const [data, setData] = useState(() => JSON.parse(JSON.stringify(initialData || {})));
   const [newCat, setNewCat] = useState('');
   const [activeCat, setActiveCat] = useState(Object.keys(data)[0] || '');
   const [newNiche, setNewNiche] = useState('');
@@ -84,15 +82,15 @@ function ClassificationDrawer({ data: initialData, onClose, onSave }) {
     <motion.div className="drawer-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
       <motion.div className="drawer-panel" onClick={e => e.stopPropagation()} initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}>
         <div className="drawer-header">
-          <div><h3 className="h3">Classification Setup</h3><p className="p-muted">Categories & Niches</p></div>
+          <div><h3 className="h3">{t('setupTitle')}</h3><p className="p-muted">{t('setupSubtitle')}</p></div>
           <button className="icon-btn" onClick={onClose}><X size={18} /></button>
         </div>
 
         <div className="drawer-body">
           <div className="class-section">
-            <label className="section-label">1. Categories</label>
+            <label className="section-label">{t('step1')}</label>
             <div className="cat-input-row mb-12">
-              <input type="text" placeholder="Add Category..." value={newCat} onChange={e => setNewCat(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCategory()} />
+              <input type="text" placeholder={t('addCatPlace')} value={newCat} onChange={e => setNewCat(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCategory()} />
               <button className="btn btn-primary btn-small" onClick={addCategory}><Plus size={14} /></button>
             </div>
             <div className="cat-horizontal-list">
@@ -108,11 +106,11 @@ function ClassificationDrawer({ data: initialData, onClose, onSave }) {
           <div className="class-divider" />
 
           <div className="class-section">
-            <label className="section-label">2. Niches for "{activeCat || '...'}"</label>
+            <label className="section-label">{t('step2')} "{activeCat || '...'}"</label>
             {activeCat ? (
               <>
                 <div className="cat-input-row mb-12">
-                  <input type="text" placeholder="Add Niche..." value={newNiche} onChange={e => setNewNiche(e.target.value)} onKeyDown={e => e.key === 'Enter' && addNiche()} />
+                  <input type="text" placeholder={t('addNichePlace')} value={newNiche} onChange={e => setNewNiche(e.target.value)} onKeyDown={e => e.key === 'Enter' && addNiche()} />
                   <button className="btn btn-secondary btn-small" onClick={addNiche}><Plus size={14} /></button>
                 </div>
                 <div className="niche-grid-manage">
@@ -124,13 +122,13 @@ function ClassificationDrawer({ data: initialData, onClose, onSave }) {
                   ))}
                 </div>
               </>
-            ) : <p className="p-muted text-center py-4">Select a category.</p>}
+            ) : <p className="p-muted text-center py-4">{t('selectCatPrompt')}</p>}
           </div>
         </div>
 
         <div className="drawer-footer">
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={() => { onSave(data); onClose(); }}><Save size={16} /> Save Changes</button>
+          <button className="btn btn-secondary" onClick={onClose}>{t('cancel')}</button>
+          <button className="btn btn-primary" onClick={() => { onSave(data); onClose(); }}><Save size={16} /> {t('saveChanges')}</button>
         </div>
       </motion.div>
     </motion.div>
@@ -138,7 +136,7 @@ function ClassificationDrawer({ data: initialData, onClose, onSave }) {
 }
 
 // ── Channel Settings Drawer ──────────────────────────────────────────
-function ChannelSettingsDrawer({ channel, classifications, onClose, onUpdate }) {
+function ChannelSettingsDrawer({ channel, classifications, onClose, onUpdate, t }) {
   const [form, setForm] = useState({ ...channel });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const availableNiches = classifications[form.category] || [];
@@ -147,36 +145,58 @@ function ChannelSettingsDrawer({ channel, classifications, onClose, onUpdate }) 
     <motion.div className="drawer-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
       <motion.div className="drawer-panel" onClick={e => e.stopPropagation()} initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}>
         <div className="drawer-header">
-          <div><h3 className="h3">Channel Settings</h3><p className="p-muted">{channel.name}</p></div>
+          <div><h3 className="h3">{t('settingsTitle')}</h3><p className="p-muted">{channel.name}</p></div>
           <button className="icon-btn" onClick={onClose}><X size={18} /></button>
         </div>
         <div className="drawer-body">
-          <div className="form-group"><label>Name</label><input type="text" value={form.name} onChange={e => set('name', e.target.value)} /></div>
+          <div className="form-group"><label>{t('nameLabel')}</label><input type="text" value={form.name} onChange={e => set('name', e.target.value)} /></div>
           <div className="form-group">
-            <label>Category</label>
+            <label>{t('catLabel')}</label>
             <div className="cat-grid">
-              <button className={`cat-chip ${form.category === 'Uncategorized' ? 'active' : ''}`} onClick={() => { set('category', 'Uncategorized'); set('niche', 'Uncategorized'); }}>Uncategorized</button>
+              <button className={`cat-chip ${form.category === 'Uncategorized' ? 'active' : ''}`} onClick={() => { set('category', 'Uncategorized'); set('niche', 'Uncategorized'); }}>{t('uncategorized')}</button>
               {Object.keys(classifications).map(c => <button key={c} className={`cat-chip ${form.category === c ? 'active' : ''}`} onClick={() => { set('category', c); set('niche', classifications[c][0] || 'Uncategorized'); }}>{c}</button>)}
             </div>
           </div>
           {form.category !== 'Uncategorized' && (
             <div className="form-group">
-              <label>Sub-Niche</label>
+              <label>{t('nicheLabel')}</label>
               <div className="cat-grid">
                 {availableNiches.map(n => <button key={n} className={`cat-chip ${form.niche === n ? 'active' : ''}`} onClick={() => set('niche', n)}>{n}</button>)}
               </div>
             </div>
           )}
           <div className="form-group">
-            <label>Status</label>
+            <label>{t('statusLabel')}</label>
             <div className="option-row">
-              {['Active', 'Testing', 'Inactive'].map(s => <button key={s} className={`option-chip ${form.status === s ? 'active' : ''}`} onClick={() => set('status', s)}>{s}</button>)}
+              {['Active', 'Testing', 'Inactive', 'Archived', 'Needs Review'].map(s => (
+                <button key={s} className={`option-chip ${form.status === s ? 'active' : ''}`} onClick={() => set('status', s)}>
+                  {s}
+                </button>
+              ))}
             </div>
           </div>
-          <div className="drawer-footer">
-            <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-            <button className="btn btn-primary" onClick={() => { onUpdate(form); onClose(); }}>Save Changes</button>
+          <div className="form-group">
+            <label>{t('priority')}</label>
+            <div className="option-row">
+              {['High', 'Normal', 'Low'].map(p => (
+                <button key={p} className={`option-chip ${form.priority === p ? 'active' : ''}`} onClick={() => set('priority', p)}>
+                  {p}
+                </button>
+              ))}
+            </div>
           </div>
+          <div className="form-group">
+            <label>{t('tagsTab')}</label>
+            <input type="text" placeholder="Tags (comma separated)" value={form.tags || ''} onChange={e => set('tags', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label>{t('channelNotes')}</label>
+            <textarea rows={3} value={form.notes || ''} onChange={e => set('notes', e.target.value)} placeholder="Add private notes..." />
+          </div>
+        </div>
+        <div className="drawer-footer">
+          <button className="btn btn-secondary" onClick={onClose}>{t('cancel')}</button>
+          <button className="btn btn-primary" onClick={() => { onUpdate(form); onClose(); }}><Save size={16} /> {t('saveChanges')}</button>
         </div>
       </motion.div>
     </motion.div>
@@ -184,7 +204,7 @@ function ChannelSettingsDrawer({ channel, classifications, onClose, onUpdate }) 
 }
 
 // ── Add Channel Drawer (Google Auth Flow) ───────────────────────────
-function AddChannelDrawer({ onClose, onAdd, classifications }) {
+function AddChannelDrawer({ onClose, onAdd, classifications, t }) {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [form, setForm] = useState({ name: 'New Connected Channel', category: 'Uncategorized', niche: 'Uncategorized', status: 'Active' });
@@ -203,9 +223,9 @@ function AddChannelDrawer({ onClose, onAdd, classifications }) {
     onAdd({
       ...form,
       id: Date.now(),
-      avatar: form.name.substring(0, 2).toUpperCase(),
+      avatar: (form.name || 'CH').substring(0, 2).toUpperCase(),
       subs: '0', views: '0', watchTime: '0', revenue: '0',
-      lastUpload: 'Just added', trend: 'stable'
+      lastUpload: t('justAdded'), trend: 'stable'
     });
     onClose();
   };
@@ -214,23 +234,23 @@ function AddChannelDrawer({ onClose, onAdd, classifications }) {
     <motion.div className="drawer-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
       <motion.div className="drawer-panel" onClick={e => e.stopPropagation()} initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}>
         <div className="drawer-header">
-          <div><h3 className="h3">Add Channel</h3><p className="p-muted">Import from Google Account</p></div>
+          <div><h3 className="h3">{t('addTitle')}</h3><p className="p-muted">{t('importGoogle')}</p></div>
           <button className="icon-btn" onClick={onClose}><X size={18} /></button>
         </div>
 
         <div className="drawer-body">
           {!isConnected ? (
             <div className="auth-step">
-              <div className="auth-icon-box"><Youtube size={40} /></div>
-              <h4 className="text-center font-bold mb-4">Connect Your Channel</h4>
-              <p className="p-muted text-center mb-12">Login with Google to automatically import your channel data and analytics.</p>
+              <div className="auth-icon-box"><Globe size={40} /></div>
+              <h4 className="text-center font-bold mb-4">{t('connectTitle')}</h4>
+              <p className="p-muted text-center mb-12">{t('connectSub')}</p>
               
               <button 
                 className={`btn btn-primary btn-full ${isConnecting ? 'loading' : ''}`} 
                 onClick={simulateConnect}
                 disabled={isConnecting}
               >
-                {isConnecting ? 'Connecting...' : 'Sign in with Google'}
+                {isConnecting ? t('connecting') : t('signInGoogle')}
               </button>
             </div>
           ) : (
@@ -238,23 +258,25 @@ function AddChannelDrawer({ onClose, onAdd, classifications }) {
               <div className="connected-info mb-24">
                 <div className="check-badge"><Check size={14} /></div>
                 <div>
-                  <div className="font-bold text-main">Channel Connected!</div>
-                  <div className="text-xs text-dim">Please select category and niche below.</div>
+                  <div className="font-bold text-main">{t('connectedMsg')}</div>
+                  <div className="text-xs text-dim">{t('selectBelow')}</div>
                 </div>
               </div>
 
               <div className="form-group">
-                <label>Category</label>
+                <label>{t('catLabel')}</label>
                 <div className="cat-grid">
                   {['Uncategorized', ...Object.keys(classifications)].map(c => (
-                    <button key={c} className={`cat-chip ${form.category === c ? 'active' : ''}`} onClick={() => { set('category', c); set('niche', classifications[c]?.[0] || 'Uncategorized'); }}>{c}</button>
+                    <button key={c} className={`cat-chip ${form.category === c ? 'active' : ''}`} onClick={() => { set('category', c); set('niche', classifications[c]?.[0] || 'Uncategorized'); }}>
+                      {c === 'Uncategorized' ? t('uncategorized') : c}
+                    </button>
                   ))}
                 </div>
               </div>
 
               {form.category !== 'Uncategorized' && (
                 <div className="form-group">
-                  <label>Niche</label>
+                  <label>{t('nicheLabel')}</label>
                   <div className="cat-grid">
                     {classifications[form.category]?.map(n => (
                       <button key={n} className={`cat-chip ${form.niche === n ? 'active' : ''}`} onClick={() => set('niche', n)}>{n}</button>
@@ -264,8 +286,8 @@ function AddChannelDrawer({ onClose, onAdd, classifications }) {
               )}
 
               <div className="drawer-footer-inline mt-24">
-                <button className="btn btn-secondary" onClick={() => setIsConnected(false)}>Back</button>
-                <button className="btn btn-primary" onClick={handleFinish}>Add to Hub</button>
+                <button className="btn btn-secondary" onClick={() => setIsConnected(false)}>{t('back')}</button>
+                <button className="btn btn-primary" onClick={handleFinish}>{t('addToHub')}</button>
               </div>
             </motion.div>
           )}
@@ -277,38 +299,69 @@ function AddChannelDrawer({ onClose, onAdd, classifications }) {
 
 // ── Main Page ─────────────────────────────────────────────────────────
 export default function AllChannels() {
-  const { locale } = useLanguage();
-  const { allChannels } = useAuth();
+  const { t } = useLanguage();
+  const { allChannels = [] } = useAuth();
+  const { hasPermission } = usePermissions();
+  const navigate = useNavigate();
 
   const [classifications, setClassifications] = useState(() => {
-    const saved = localStorage.getItem('aioeg_classifications');
-    if (saved) return JSON.parse(saved);
+    try {
+      const saved = localStorage.getItem('aioeg_classifications');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch (e) { console.error(e); }
     return { 'Musik': ['Rock n Roll', 'Pop', 'Jazz'], 'Teknologi': ['AI', 'Gadgets', 'Software'], 'Kesehatan': ['Diabetes', 'Fitness', 'Nutrition'], 'Vlog': ['Daily', 'Travel', 'Food'] };
   });
 
-  const buildInitialList = () => {
-    const saved = localStorage.getItem('aioeg_channels');
-    if (saved) return JSON.parse(saved);
-    if (allChannels.length > 0) {
-      return allChannels.map((ch, i) => ({ id: ch.id || i, name: ch.title || ch.name || 'Unnamed', avatar: (ch.title || ch.name || 'CH').substring(0, 2).toUpperCase(), thumbnail: ch.thumbnail || null, category: 'Uncategorized', niche: 'Uncategorized', status: 'Active', subs: fmt(ch.subscribers || 0), views: fmt(ch.analytics?.views28d || 0), watchTime: ch.analytics?.watchTimeHours ? fmt(ch.analytics.watchTimeHours) + 'h' : '0', revenue: '—', lastUpload: '—', trend: 'stable' }));
-    }
-    return mockChannels.map(ch => ({ ...ch, category: 'Musik', niche: 'Rock n Roll', avatar: (ch.name || 'CH').substring(0, 2).toUpperCase(), subs: ch.subs, views: ch.views, watchTime: ch.watchTime.replace(' hrs', 'h') }));
-  };
+  const [channelMetadata, setChannelMetadata] = useState(() => {
+    try {
+      const saved = localStorage.getItem('aioeg_channel_meta');
+      if (saved) return JSON.parse(saved);
+    } catch (e) { console.error(e); }
+    return {};
+  });
 
-  const [channelList, setChannelList] = useState(buildInitialList);
+  useEffect(() => { 
+    if (classifications) localStorage.setItem('aioeg_classifications', JSON.stringify(classifications)); 
+  }, [classifications]);
 
-  useEffect(() => { localStorage.setItem('aioeg_classifications', JSON.stringify(classifications)); }, [classifications]);
-  useEffect(() => { localStorage.setItem('aioeg_channels', JSON.stringify(channelList)); }, [channelList]);
+  useEffect(() => { 
+    localStorage.setItem('aioeg_channel_meta', JSON.stringify(channelMetadata)); 
+  }, [channelMetadata]);
+
+  // Combine real data with local metadata
+  const channelList = (allChannels || []).map((ch, i) => {
+    const meta = channelMetadata[ch.id] || {};
+    return {
+      id: ch.id || i,
+      name: ch.title || ch.name || 'Unnamed',
+      avatar: (ch.title || ch.name || 'CH').substring(0, 2).toUpperCase(),
+      thumbnail: ch.thumbnail || null,
+      category: meta.category || 'Uncategorized',
+      niche: meta.niche || 'Uncategorized',
+      status: meta.status || 'Active',
+      priority: meta.priority || 'Normal',
+      tags: meta.tags || '',
+      notes: meta.notes || '',
+      subs: fmt(ch.subscribers || 0),
+      views: fmt(ch.analytics?.views28d || 0),
+      watchTime: ch.analytics?.watchTimeHours ? fmt(ch.analytics.watchTimeHours) + 'h' : '0',
+      revenue: hasPermission('monetization') ? (ch.analytics?.revenue ? '$' + ch.analytics.revenue.toFixed(2) : '—') : 'PROTECTED',
+      lastUpload: '—',
+      trend: 'stable'
+    };
+  });
 
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('all');
-  const [showAddDrawer, setShowAddDrawer] = useState(false);
   const [showClassDrawer, setShowClassDrawer] = useState(false);
   const [settingsChannel, setSettingsChannel] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
 
-  const filtered = channelList.filter(c => {
-    const matchSearch = !search || c.name.toLowerCase().includes(search.toLowerCase());
+  const filtered = (channelList || []).filter(c => {
+    const matchSearch = !search || String(c.name || '').toLowerCase().includes(search.toLowerCase());
     const matchCat = filterCat === 'all' || c.category === filterCat;
     return matchSearch && matchCat;
   });
@@ -316,20 +369,24 @@ export default function AllChannels() {
   return (
     <div className="ac-container">
       <header className="ac-header-main">
-        <div className="header-info"><h2 className="h2">{locale === 'id' ? 'Semua Channel' : 'All Channels'}</h2><p className="p-muted">Network classification command center.</p></div>
+        <div className="header-info"><h2 className="h2">{t('allChannelsTitle')}</h2><p className="p-muted">{t('allChannelsSubtitle')}</p></div>
         <div className="header-actions">
-          <button className="btn btn-secondary" onClick={() => setShowClassDrawer(true)}><Layers size={16} /> Classification Settings</button>
-          <button className="btn btn-primary" onClick={() => setShowAddDrawer(true)}><Plus size={16} /> Add Channel</button>
+          {hasPermission('admin') && (
+            <>
+              <button className="btn btn-secondary" onClick={() => setShowClassDrawer(true)}><Layers size={16} /> {t('classificationSettings')}</button>
+              <button className="btn btn-primary" onClick={() => navigate('/youtube/account')}><Plus size={16} /> {t('addChannel')}</button>
+            </>
+          )}
         </div>
       </header>
 
       <div className="ac-filters">
-        <div className="ac-search"><Search size={15} /><input type="text" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} /></div>
+        <div className="ac-search"><Search size={15} /><input type="text" placeholder={t('searchPlaceholder')} value={search} onChange={e => setSearch(e.target.value)} /></div>
         <div className="ac-selects">
           <div className="ac-select-wrap">
             <select value={filterCat} onChange={e => setFilterCat(e.target.value)}>
-              <option value="all">All Categories</option>
-              {Object.keys(classifications).map(c => <option key={c} value={c}>{c}</option>)}
+              <option value="all">{t('allCategories')}</option>
+              {Object.keys(classifications || {}).map(c => <option key={c} value={c}>{c}</option>)}
             </select><ChevronDown size={14} />
           </div>
         </div>
@@ -337,11 +394,13 @@ export default function AllChannels() {
 
       <div className="ac-table">
         <div className="ac-table-header">
-          <span className="col-ch">Channel</span><span className="col-up">Last Upload</span><span className="col-trend">Trend</span><span className="col-stat">Subs</span><span className="col-stat">Views</span><span className="col-stat">Watch</span><span className="col-stat">Rev</span><span className="col-act"></span>
+          <span className="col-ch">{t('colChannel')}</span><span className="col-up">{t('colUpload')}</span><span className="col-trend">{t('colTrend')}</span><span className="col-stat">{t('colSubs')}</span><span className="col-stat">{t('colViews')}</span><span className="col-stat">{t('colWatch')}</span>
+          {hasPermission('monetization') && <span className="col-stat">{t('colRev')}</span>}
+          <span className="col-act"></span>
         </div>
         <div className="ac-table-body">
           {filtered.map(ch => {
-            const trend = TREND_STYLE[ch.trend] || TREND_STYLE.stable;
+            const trend = getTrendStyle(ch.trend, t);
             const Icon = trend.icon;
             const color = getColor(ch.name);
             const isExpanded = expandedId === ch.id;
@@ -350,32 +409,41 @@ export default function AllChannels() {
               <div key={ch.id} className={`ac-row-wrap ${isExpanded ? 'is-expanded' : ''}`}>
                 <div className="ac-row" onClick={() => setExpandedId(isExpanded ? null : ch.id)}>
                   <div className="col-ch ac-identity">
-                    <div className="ac-avatar" style={{ background: color + '15', color }}>{ch.thumbnail ? <img src={ch.thumbnail} alt="" /> : ch.avatar}</div>
-                    <div className="ac-info"><span className="ac-name">{ch.name}</span><div className="ac-meta vertical"><span className="ac-tag-main">{ch.category}</span><span className="ac-tag-sub">{ch.niche}</span></div></div>
+                    <div className="ac-avatar" style={{ background: color + '15', color }}>
+                      {ch.thumbnail ? <img src={ch.thumbnail} alt="" /> : (ch.avatar || 'CH')}
+                    </div>
+                    <div className="ac-info">
+                      <span className="ac-name">{ch.name}</span>
+                      <div className="ac-meta vertical">
+                        <span className="ac-tag-main">{ch.category === 'Uncategorized' ? t('uncategorized') : ch.category}</span>
+                        <span className="ac-tag-sub">{ch.niche === 'Uncategorized' ? t('uncategorized') : ch.niche}</span>
+                      </div>
+                    </div>
                   </div>
                   <div className="col-up"><span className="val-text">{ch.lastUpload}</span></div>
                   <div className="col-trend"><span className="trend-badge" style={{ background: trend.bg, color: trend.color }}><Icon size={12} /> {trend.label}</span></div>
                   <div className="col-stat"><span className="val-text">{ch.subs}</span></div>
                   <div className="col-stat"><span className="val-text">{ch.views}</span></div>
                   <div className="col-stat"><span className="val-text">{ch.watchTime}</span></div>
-                  <div className="col-stat"><span className="val-text">{ch.revenue}</span></div>
+                  {hasPermission('monetization') && <div className="col-stat"><span className="val-text">{ch.revenue}</span></div>}
                   <div className="col-act" onClick={e => e.stopPropagation()}>
-                    <button className="icon-btn-sm" onClick={() => setSettingsChannel(ch)}><Settings size={14} /></button>
-                    <button className="icon-btn-sm danger" onClick={() => setChannelList(l => l.filter(i => i.id !== ch.id))}><Trash2 size={14} /></button>
+                    {hasPermission('admin') && <button className="icon-btn-sm" onClick={() => setSettingsChannel(ch)}><Settings size={14} /></button>}
                   </div>
                 </div>
               </div>
             );
           })}
+          {filtered.length === 0 && <p className="p-muted text-center py-8">{t('noChannels')}</p>}
         </div>
       </div>
 
-      <button className="ac-fab" onClick={() => setShowAddDrawer(true)}><Plus size={20} /><span>Add Channel</span></button>
+      {hasPermission('admin') && (
+        <button className="ac-fab" onClick={() => navigate('/youtube/account')}><Plus size={20} /><span>{t('addChannel')}</span></button>
+      )}
 
       <AnimatePresence>
-        {showAddDrawer && <AddChannelDrawer classifications={classifications} onClose={() => setShowAddDrawer(false)} onAdd={c => setChannelList(l => [...l, c])} />}
-        {showClassDrawer && <ClassificationDrawer data={classifications} onClose={() => setShowClassDrawer(false)} onSave={setClassifications} />}
-        {settingsChannel && <ChannelSettingsDrawer channel={settingsChannel} classifications={classifications} onClose={() => setSettingsChannel(null)} onUpdate={u => setChannelList(l => l.map(i => i.id === u.id ? u : i))} />}
+        {showClassDrawer && <ClassificationDrawer data={classifications} onClose={() => setShowClassDrawer(false)} onSave={setClassifications} t={t} />}
+        {settingsChannel && <ChannelSettingsDrawer channel={settingsChannel} classifications={classifications} onClose={() => setSettingsChannel(null)} onUpdate={u => setChannelMetadata(prev => ({ ...prev, [u.id]: { ...prev[u.id], ...u } }))} t={t} />}
       </AnimatePresence>
     </div>
   );
